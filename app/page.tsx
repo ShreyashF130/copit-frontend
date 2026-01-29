@@ -314,7 +314,7 @@ export default async function LandingPage() {
                    Go to Dashboard
                  </Link>
               ) : (
-                 <Link href="/signup" className="px-10 py-5 bg-white text-primary rounded-2xl font-black text-lg hover:bg-blue-50 transition-colors shadow-xl btn-velocity">
+                 <Link href="/login" className="px-10 py-5 bg-white text-primary rounded-2xl font-black text-lg hover:bg-blue-50 transition-colors shadow-xl btn-velocity">
                    Launch My Shop
                  </Link>
               )}
