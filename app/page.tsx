@@ -57,7 +57,7 @@ export default async function LandingPage() {
                    Go to Dashboard <ArrowRight size={20} />
                  </Link>
               ) : (
-                 <Link href="/signup" className="w-full sm:w-auto px-8 py-4 bg-primary text-white rounded-2xl font-black text-lg shadow-2xl shadow-primary/30 hover:scale-105 transition-transform flex items-center justify-center gap-2 btn-velocity">
+                 <Link href="/login" className="w-full sm:w-auto px-8 py-4 bg-primary text-white rounded-2xl font-black text-lg shadow-2xl shadow-primary/30 hover:scale-105 transition-transform flex items-center justify-center gap-2 btn-velocity">
                    Start Free Trial <ArrowRight size={20} />
                  </Link>
               )}
