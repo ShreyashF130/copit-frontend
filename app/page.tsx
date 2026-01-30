@@ -5,36 +5,32 @@ import {
   MessageCircle, Truck, BarChart3, ShieldCheck,
   PackageCheck, MousePointerClick
 } from 'lucide-react'
+export const dynamic = 'force-dynamic'
 
-// 1. IMPORT SUPABASE SERVER CLIENT
-// import { createClient as createClientS } from '/lib/supabase-browser'
-import { createClient as createClientS } from './lib/supabase-browser'
+import { createServerClientInstance as createClientS } from '@/app/lib/supabase-server'
 
 import Footer from './Footer.tsx/page'
-import Navbar from './components/Navbar' // 👈 IMPORT THE NEW NAVBAR
+import Navbar from './components/Navbar' 
 
-// 2. MAKE COMPONENT ASYNC
+
 export default async function LandingPage() {
   
-  // 3. CHECK SESSION ON SERVER
+ 
   const supabase = await createClientS()
   const { data: { user } } = await supabase.auth.getUser()
 
   return (
     <div className="min-h-screen bg-background text-foreground transition-colors duration-300 overflow-x-hidden selection:bg-primary/20">
       
-      {/* --- SMART NAVBAR --- */}
-      {/* We pass the 'user' object to the Client Component so it knows what button to show */}
+
       <Navbar user={user} />
 
-      {/* --- HERO SECTION --- */}
       <section className="relative pt-32 pb-20 lg:pt-48 lg:pb-32 px-6">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-primary/10 blur-[120px] rounded-full opacity-50 pointer-events-none" />
         <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-blue-400/5 blur-[120px] rounded-full opacity-30 pointer-events-none" />
 
         <div className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center relative z-10">
           
-          {/* LEFT: COPY */}
           <div className="text-center lg:text-left space-y-8 animate-in slide-in-from-bottom-8 fade-in duration-1000">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 text-primary text-xs font-black uppercase tracking-widest border border-primary/20">
               <Zap size={14} className="animate-pulse" /> The OS for Instagram Sellers
@@ -83,10 +79,8 @@ export default async function LandingPage() {
             </div>
           </div>
 
-          {/* RIGHT: WHATSAPP MOCKUP */}
           <div className="relative animate-in zoom-in-95 duration-1000 delay-200 hidden lg:block perspective-1000">
              
-             {/* Floating Badge 1 */}
              <div className="absolute top-20 -right-8 bg-white dark:bg-slate-800 p-4 rounded-2xl shadow-xl border border-border flex items-center gap-3 animate-bounce duration-[3000ms] z-20">
                 <div className="p-2 bg-green-100 text-green-600 rounded-lg"><ShoppingBag size={20} /></div>
                 <div>
@@ -95,7 +89,7 @@ export default async function LandingPage() {
                 </div>
              </div>
 
-             {/* Main Phone */}
+
              <div className="relative z-10 w-[340px] mx-auto bg-slate-900 rounded-[3rem] p-3 border-[6px] border-slate-800 shadow-2xl shadow-primary/20 rotate-[-4deg] hover:rotate-0 transition-all duration-500 ease-out hover:scale-105">
                 <div className="bg-white dark:bg-slate-950 rounded-[2.5rem] h-[600px] overflow-hidden flex flex-col relative">
                    {/* WhatsApp Header */}
