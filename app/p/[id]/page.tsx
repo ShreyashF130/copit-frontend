@@ -56,7 +56,7 @@ export default async function PublicProductPage({
 
 (Ref: buy_item_${item.id}_${source.toLowerCase()})`
 
-  const waLink = `https://wa.me/${shop.phone_number}?text=${encodeURIComponent(message)}`
+  const waLink = `https://wa.me/${process.env.NEXT_PUBLIC_BOT_PHONE}?text=${encodeURIComponent(message)}`
   const storeLink = `/s/${shop.id}?ref=${source.toLowerCase()}` 
 
   return (
