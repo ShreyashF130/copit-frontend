@@ -183,7 +183,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL;
               Your automated assistant is currently handling customer queries.
             </p>
             <a 
-              href={`https://wa.me/${shop?.phone_number}`} 
+              href={`https://wa.me/${process.env.NEXT_PUBLIC_BOT_PHONE}`} 
               target="_blank"
               className="bg-white/90 text-indigo-600 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest inline-flex items-center gap-2 hover:bg-white transition-colors"
             >

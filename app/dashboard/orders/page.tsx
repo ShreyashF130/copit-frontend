@@ -303,7 +303,7 @@ export default function OrdersPage() {
                       )}
                     </td>
 
-                    <td className="px-6 py-6 align-top text-right">
+                    {/* <td className="px-6 py-6 align-top text-right">
                       {order.delivery_status === 'processing' ? (
                         <button 
                           onClick={() => setShippingOrder(order)} 
@@ -340,7 +340,57 @@ export default function OrdersPage() {
                             )}
                         </div>
                       )}
-                    </td>
+                    </td> */}
+
+                    <td className="px-6 py-6 align-top text-right">
+  {order.delivery_status === 'processing' ? (
+    <button 
+      onClick={() => setShippingOrder(order)} 
+      className="bg-foreground text-background px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-md flex items-center gap-2 ml-auto"
+    >
+      <Package size={14} /> Ship Now
+    </button>
+  ) : (
+    <div className="flex flex-col items-end gap-2">
+        {/* 1. THE STATUS BADGE */}
+        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 border ${
+          order.delivery_status === 'delivered' 
+            ? 'bg-green-50 text-green-600 border-green-200' 
+            : 'bg-blue-50 text-blue-600 border-blue-200'
+        }`}>
+          <Truck size={12} /> {order.delivery_status}
+        </span>
+        
+        {/* 2. THE BIG PRINT BUTTON (High Visibility) */}
+        {order.shipping_label_url && (
+           <button 
+             onClick={() => window.open(order.shipping_label_url, '_blank')} 
+             className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-foreground px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
+           >
+             <Printer size={12} /> Print Label
+           </button>
+        )}
+
+        {/* 3. SECONDARY ACTIONS (Track / Mark Delivered) */}
+        <div className="flex items-center gap-3 text-[9px] font-bold text-muted-foreground">
+           {order.tracking_link && (
+             <a href={order.tracking_link} target="_blank" className="hover:text-primary flex items-center gap-1">
+               <ExternalLink size={10} /> Track
+             </a>
+           )}
+           
+           {order.delivery_status !== 'delivered' && (
+             <button 
+               onClick={() => handleAction(order.id, 'delivery_status', 'delivered')}
+               className="hover:text-green-600 decoration-dotted underline underline-offset-2"
+             >
+               Mark Delivered
+             </button>
+           )}
+        </div>
+    </div>
+  )}
+</td>
                   </tr>
                 ))}
               </tbody>
