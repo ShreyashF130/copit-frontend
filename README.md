@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ⚡ CopIt Frontend | The High-Velocity Checkout Engine
 
-## Getting Started
+![Next.js 14](https://img.shields.io/badge/Next.js-14%20(App%20Router)-black?logo=next.js)
+![TypeScript](https://img.shields.io/badge/Language-TypeScript-blue?logo=typescript)
+![Tailwind CSS](https://img.shields.io/badge/Styling-Tailwind%20v3-38B2AC?logo=tailwind-css)
+![Vercel](https://img.shields.io/badge/Deployment-Vercel-black?logo=vercel)
+![Status](https://img.shields.io/badge/Status-Production%20Ready-success)
 
-First, run the development server:
+> **CopIt Frontend** is the specialized "Checkout Bridge" for the CopIt WhatsApp Commerce Ecosystem. It transforms a clumsy text-based data entry process into a seamless, validated, 3-tap experience.
+
+---
+
+## 🛑 The Problem: "The Chat-Input Bottleneck"
+
+In the world of WhatsApp Commerce, the **Address Input** is the biggest killer of conversion rates.
+
+* **Friction:** Typing a full address (House No, Street, City, Pincode) inside a chat bubble is tedious and error-prone.
+* **Validation Void:** WhatsApp cannot natively validate if a Pincode is serviceable by logistics partners like Shiprocket in real-time.
+* **Privacy Risks:** Users are hesitant to share personal details in open chat windows without visual confirmation of security.
+
+**Result:** 40% of interested buyers drop off at the "Send Address" stage.
+
+---
+
+## 🟢 The Solution: A "Transient" Web Bridge
+
+I engineered a **Hybrid Handoff Architecture**. Instead of forcing users to type, we generate a secure, personalized checkout link that opens a high-performance web view.
+
+### 🚀 How It Works (The "3-Tap" Flow)
+1.  **Instant Context:** The app decodes a secure UUID to fetch the user's existing profile (Name, Phone) without exposing it in the URL.
+2.  **Smart Auto-Fill:** If the user has ordered before, their address is pre-filled from the Supabase backend.
+3.  **Real-Time Guardrails:** As the user types a new Pincode, the app debounces the input and queries the **Shiprocket API** (via backend) to validate deliverability instantly.
+4.  **Deep Link Return:** Upon confirmation, the app constructs a `wa.me` deep link to bounce the user back to WhatsApp with a signed "Success" token, triggering the payment flow.
+
+---
+
+## 📸 User Journey
+*(Add a GIF or Screenshot here of the mobile checkout flow)*
+`[Placeholder: Mobile View of Address Form -> Deep Link Redirect]`
+
+---
+
+## 🛠 Tech Stack & Architecture
+
+This project is built on **Next.js 14** using the modern **App Router** for maximum performance and SEO capabilities.
+
+| Layer | Technology | Engineering Decision |
+| :--- | :--- | :--- |
+| **Framework** | **Next.js 14** | Leveraged **Server Components** to fetch initial session data on the server, ensuring the client receives a fully hydrated form with zero layout shift (CLS). |
+| **Language** | **TypeScript** | Enforced strict typing for API responses (User, Order, Serviceability) to eliminate runtime `undefined` errors. |
+| **Styling** | **Tailwind CSS** | Used for mobile-first responsive design. Implemented custom utility classes for "Touch Targets" (44px+) to optimize for mobile thumbs. |
+| **State** | **React Hooks** | Used `useDebounce` for API calls and `useOptimistic` to make UI interactions feel instant despite network latency. |
+| **Icons** | **Lucide React** | Lightweight, tree-shakable icons for a clean UI. |
+
+---
+
+## 📂 Project Structure (App Router)
+
+Designed for scalability and separation of concerns.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+├── app/
+│   ├── api/             # Next.js API Routes (Proxying requests to FastAPI)
+│   ├── checkout/
+│   │   └── [uuid]/      # Dynamic Route: Handles the secure session logic
+│   │       ├── page.tsx # Server Component (Data Fetching)
+│   │       └── form.tsx # Client Component (Interactive UI)
+│   └── layout.tsx       # Root Layout (Fonts, Meta tags)
+├── components/
+│   ├── ui/              # Reusable Atoms (Buttons, Input Fields, Toasts)
+│   └── skeletons/       # Loading states for better UX
+├── lib/
+│   ├── utils.ts         # Helper functions (CN class merger, Formatters)
+│   └── validators.ts    # Zod schemas for frontend form validation
+└── public/              # Static assets (Logos, Illustrations)
