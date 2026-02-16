@@ -11,7 +11,7 @@ export default function CheckoutPage({ params }: { params: { id: string } }) {
 
   // 1. Fetch Data on Load
   useEffect(() => {
-    axios.get(`https://api.copit.in/session/${params.id}`)
+    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/session/${params.id}`)
       .then((res) => {
         if (res.data.saved_address) {
           setAddress(res.data.saved_address);
