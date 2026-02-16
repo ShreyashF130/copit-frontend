@@ -1,32 +1,41 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+// 👇 IMPORT useParams
+import { useRouter, useParams } from "next/navigation"; 
 import axios from "axios";
 
-export default function CheckoutPage({ params }: { params: { id: string } }) {
+export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [address, setAddress] = useState({ street: "", city: "", pincode: "" });
   const [error, setError] = useState("");
-  const router = useRouter();
+  
+  // 👇 USE THE HOOK
+  const params = useParams(); 
+  // params.id will match your folder name [id]
+  const sessionId = params?.id as string; 
 
   // 1. Fetch Data on Load
   useEffect(() => {
-    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/session/${params.id}`)
+    // Safety Check: Don't fetch if ID is missing
+    if (!sessionId) return;
+
+    // 👇 USE REAL RAILWAY URL (process.env.NEXT_PUBLIC_API_URL)
+    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/session/${sessionId}`)
       .then((res) => {
         if (res.data.saved_address) {
           setAddress(res.data.saved_address);
         }
         setLoading(false);
       })
-      .catch(() => {
-        setError("This link has expired. Please ask the bot for a new one.");
+      .catch((err) => {
+        console.error("Fetch Error:", err);
+        setError("This link has expired or is invalid.");
         setLoading(false);
       });
-  }, [params.id]);
+  }, [sessionId]);
 
-  // 2. Validate Pincode (Shiprocket Stub)
+  // 2. Validate Pincode Stub
   const checkServiceability = async (pincode: string) => {
-     // Add your Shiprocket logic here
      console.log("Checking pincode:", pincode);
   };
 
@@ -34,42 +43,56 @@ export default function CheckoutPage({ params }: { params: { id: string } }) {
     e.preventDefault();
     setLoading(true);
     
-    // 3. Save & Redirect
-    const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/confirm-address`, {
-        session_id: params.id,
-        address: address
-    });
-    
-    // 4. BOUNCE BACK TO WHATSAPP
-    window.location.href = res.data.redirect_url;
+    try {
+      // 3. Save & Redirect
+      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/confirm-address`, {
+          session_id: sessionId, // Use the variable
+          address: address
+      });
+      
+      // 4. BOUNCE BACK TO WHATSAPP
+      window.location.href = res.data.redirect_url;
+    } catch (err) {
+      console.error("Save Error:", err);
+      setError("Failed to save address. Try again.");
+      setLoading(false);
+    }
   };
 
-  if (error) return <div className="p-10 text-red-500 text-center">{error}</div>;
+  if (error) return <div className="p-10 text-red-500 text-center font-bold">{error}</div>;
   if (loading) return <div className="p-10 text-center">Loading Secure Session...</div>;
 
   return (
-    <div className="p-6 max-w-md mx-auto">
-      <h1 className="text-2xl font-bold mb-4">Confirm Delivery</h1>
-      <form onSubmit={handleConfirm} className="space-y-4">
-        <input 
-          placeholder="Pincode" 
-          value={address.pincode}
-          onChange={(e) => {
-              setAddress({...address, pincode: e.target.value});
-              if(e.target.value.length === 6) checkServiceability(e.target.value);
-          }}
-          className="w-full p-3 border rounded"
-        />
-        <input 
-          placeholder="Address / Street" 
-          value={address.street}
-          onChange={(e) => setAddress({...address, street: e.target.value})}
-          className="w-full p-3 border rounded"
-        />
-        <button type="submit" className="w-full bg-green-600 text-white p-4 rounded font-bold">
-          Confirm & Pay on WhatsApp
-        </button>
-      </form>
+    <div className="p-6 max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col justify-center">
+      <div className="bg-white p-6 rounded-xl shadow-lg">
+        <h1 className="text-2xl font-black mb-6 text-gray-900">Confirm Delivery</h1>
+        <form onSubmit={handleConfirm} className="space-y-4">
+          <div>
+            <label className="text-sm font-bold text-gray-500">Pincode</label>
+            <input 
+              placeholder="110001" 
+              value={address.pincode}
+              onChange={(e) => {
+                  setAddress({...address, pincode: e.target.value});
+                  if(e.target.value.length === 6) checkServiceability(e.target.value);
+              }}
+              className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-black outline-none font-medium"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-bold text-gray-500">Full Address</label>
+            <textarea 
+              placeholder="House No, Street, Area..." 
+              value={address.street || ""} // Handle undefined case
+              onChange={(e) => setAddress({...address, street: e.target.value})}
+              className="w-full p-3 border-2 border-gray-200 rounded-lg focus:border-black outline-none font-medium h-24"
+            />
+          </div>
+          <button type="submit" className="w-full bg-green-600 hover:bg-green-700 text-white p-4 rounded-xl font-bold text-lg transition-all">
+            Confirm & Pay on WhatsApp
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
