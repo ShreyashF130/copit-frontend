@@ -35,7 +35,7 @@ export default function CheckoutPage({ params }: { params: { id: string } }) {
     setLoading(true);
     
     // 3. Save & Redirect
-    const res = await axios.post("https://api.copit.in/confirm-address", {
+    const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/confirm-address`, {
         session_id: params.id,
         address: address
     });
