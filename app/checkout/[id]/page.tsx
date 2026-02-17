@@ -18,32 +18,49 @@ export default function CheckoutPage() {
   });
 
   const params = useParams(); 
+  // Ensure we get the ID cleanly
   const sessionId = params?.id as string; 
 
-  // 1. Fetch Data
+  // 1. Fetch Data with RETRY LOGIC (Crucial Fix 🚀)
   useEffect(() => {
     if (!sessionId) return;
-    axios.get(`${process.env.NEXT_PUBLIC_API_URL}/session/${sessionId}`)
-      .then((res) => {
+
+    const fetchSession = async (retries = 3) => {
+      try {
+        // Debug log to check what ID is being sent
+        console.log(`🔍 Fetching Session: ${sessionId} (Attempts left: ${retries})`);
+        
+        const res = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/session/${sessionId}`);
+        
         if (res.data.saved_address) {
-          // Auto-fill if we have data
           setFormData(prev => ({...prev, ...res.data.saved_address}));
         }
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setError("This link has expired or is invalid.");
-        setLoading(false);
-      });
+      
+      } catch (err: any) {
+        console.error("Fetch Error:", err);
+        
+        // If it's a 404 (Not Found), it might be DB lag. RETRY.
+        if (retries > 0) {
+          console.log(`⚠️ Database lag detected. Retrying in 1s...`);
+          setTimeout(() => fetchSession(retries - 1), 1000); 
+        } else {
+          // Final Failure: Check exactly what the backend said
+          const msg = err.response?.data?.detail || "This link has expired or is invalid.";
+          setError(msg === "Link expired" ? "This link has expired." : "Invalid or Used Link.");
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchSession();
   }, [sessionId]);
 
-  // 2. Simple Pincode Lookup (Optional: Replace with real API)
+  // 2. Simple Pincode Lookup
   const handlePincode = (code: string) => {
       setFormData(prev => ({...prev, pincode: code}));
       if (code.length === 6) {
-          // Simulate lookup or call Shiprocket API here
-          // setFormData(prev => ({...prev, city: "Mumbai", state: "Maharashtra"})); 
+          // Placeholder for future logic
       }
   };
 
@@ -64,8 +81,8 @@ export default function CheckoutPage() {
     }
   };
 
-  if (error) return <div className="p-10 text-red-500 text-center font-bold">{error}</div>;
-  if (loading) return <div className="p-10 text-center">Loading Secure Session...</div>;
+  if (error) return <div className="p-10 text-red-500 text-center font-bold text-xl">{error}</div>;
+  if (loading) return <div className="p-10 text-center text-gray-500 font-medium animate-pulse">Loading Secure Session...</div>;
 
   return (
     <div className="p-6 max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col justify-center">
