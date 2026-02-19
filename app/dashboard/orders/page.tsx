@@ -5,7 +5,7 @@ import { createClient } from '@/app/lib/supabase-browser'
 import { 
   ShoppingBag, Phone, Eye, Printer,
   Search, Package, Truck, ExternalLink,
-  Clock, Copy, X, AlertTriangle, CheckCircle2, Ban
+  Clock, Copy, X, AlertTriangle, CheckCircle2, Ban,MessageCircle
 } from 'lucide-react'
 import { toast } from 'sonner'
 import ShipmentModal from '@/app/components/shipmentModel'
@@ -75,12 +75,29 @@ export default function OrdersPage() {
     setLoading(false)
   }
 
-  // --- ACTIONS (Calls the new API) ---
-  const handlePaymentVerification = async (id: number, decision: 'APPROVE' | 'REJECT') => {
-    // Optimistic UI Update
+
+   const handleResendMsg = async (id: number) => {
+      toast.loading("Resending WhatsApp...")
+      try {
+          const res = await fetch('/api/order/resend', {
+              method: 'POST', 
+              body: JSON.stringify({ orderId: id })
+          })
+          if(res.ok) toast.success("Message Sent Successfully!")
+          else toast.error("Failed to send.")
+      } catch(e) {
+          toast.error("Network Error")
+      }
+  }
+
+
+
+
+const handlePaymentVerification = async (id: number, decision: 'APPROVE' | 'REJECT') => {
     const newStatus = decision === 'APPROVE' ? 'paid' : 'failed'
+    // Optimistic Update
     setOrders(prev => prev.map(o => o.id === id ? { ...o, payment_status: newStatus } : o))
-    toast.info("Processing verification...")
+    toast.info("Processing...")
 
     try {
       const res = await fetch('/api/order/verify', {
@@ -89,13 +106,21 @@ export default function OrdersPage() {
         body: JSON.stringify({ orderId: id, decision })
       })
       
-      if (!res.ok) throw new Error("API Error")
+      const data = await res.json()
       
-      toast.success(decision === 'APPROVE' ? "Verified & Customer Notified!" : "Rejected & Notified")
-      fetchOrders() // Refresh to be sure
+      if (!res.ok) throw new Error("API Error")
+
+      // ⚠️ CHECK MESSAGE STATUS
+      if (data.messageStatus === 'failed') {
+          toast.warning("Order Saved, BUT WhatsApp Failed! Please try 'Resend' button.")
+      } else {
+          toast.success("Verified & Notified Customer!")
+      }
+      
+      fetchOrders()
     } catch (e) {
-      toast.error("Failed to sync with WhatsApp. Please try again.")
-      fetchOrders() // Revert UI on error
+      toast.error("Critical Sync Error")
+      fetchOrders()
     }
   }
 
@@ -251,15 +276,22 @@ export default function OrdersPage() {
                       )}
 
                       {/* STATUS: PAID */}
-                      {(order.payment_status === 'paid' || order.status === 'PAID') && (
-                         <div className="space-y-1">
-                            <span className="bg-green-500/10 text-green-600 border border-green-500/20 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 w-fit">
-                              ✅ Verified Paid
-                            </span>
-                            {order.payment_method === 'ONLINE' && <p className="text-[9px] text-muted-foreground pl-1">via Razorpay</p>}
-                            {order.payment_method !== 'ONLINE' && <p className="text-[9px] text-muted-foreground pl-1">via Manual UPI</p>}
-                         </div>
-                      )}
+                     {/* CASE C: Verified / Paid */}
+  {(order.payment_status === 'paid' || order.status === 'PAID') && (
+     <div className="space-y-2">
+        <span className="bg-green-500/10 text-green-600 border border-green-500/20 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 w-fit">
+          ✅ Verified Paid
+        </span>
+        
+        {/* RESEND BUTTON: The Safety Net */}
+        <button 
+            onClick={() => handleResendMsg(order.id)}
+            className="text-[9px] font-bold text-blue-500 hover:text-blue-700 flex items-center gap-1 bg-blue-50 px-2 py-1 rounded border border-blue-100"
+        >
+            <MessageCircle size={10} /> Resend Receipt
+        </button>
+     </div>
+  )}
 
                       {/* STATUS: FAILED */}
                       {order.payment_status === 'failed' && (
@@ -309,18 +341,27 @@ export default function OrdersPage() {
 
       {/* --- IMAGE MODAL --- */}
 {/* --- IMAGE MODAL --- */}
+    {/* --- IMAGE MODAL (Fixed) --- */}
       {previewImage && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="bg-card rounded-[2rem] p-2 max-w-sm w-full relative shadow-2xl animate-in zoom-in-95 border border-border">
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in duration-200 cursor-pointer"
+          onClick={() => setPreviewImage(null)} // 1. CLOSE ON BACKDROP CLICK
+        >
+          {/* Stop click propagation so clicking the image doesn't close it */}
+          <div 
+            className="bg-card rounded-[1.5rem] p-2 max-w-sm w-full relative shadow-2xl animate-in zoom-in-95 border border-white/10 cursor-default"
+            onClick={(e) => e.stopPropagation()} 
+          >
             
+            {/* 2. VISIBLE CLOSE BUTTON (Inside the card for safety) */}
             <button 
               onClick={() => setPreviewImage(null)} 
-              className="absolute -top-12 right-0 p-2 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors"
+              className="absolute top-4 right-4 z-50 p-2 bg-black/50 hover:bg-black/70 text-white rounded-full transition-all backdrop-blur-md"
             >
-              <X size={24} />
+              <X size={20} />
             </button>
 
-            <div className="aspect-[3/5] w-full bg-black rounded-[1.5rem] overflow-hidden flex items-center justify-center relative">
+            <div className="aspect-[3/5] w-full bg-black rounded-[1rem] overflow-hidden flex items-center justify-center relative">
                <img 
                  src={`/api/media/${previewImage}`} 
                  alt="Payment Proof" 
@@ -328,8 +369,8 @@ export default function OrdersPage() {
                />
             </div>
 
-            <div className="p-4 text-center">
-                <p className="text-xs text-muted-foreground">Media ID: {previewImage}</p>
+            <div className="p-3 text-center bg-white dark:bg-slate-900 rounded-b-[1rem]">
+                <p className="text-[10px] font-mono text-muted-foreground">ID: {previewImage}</p>
             </div>
           </div>
         </div>
