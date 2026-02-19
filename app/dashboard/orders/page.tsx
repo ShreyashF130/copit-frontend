@@ -3,9 +3,9 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/app/lib/supabase-browser'
 import { 
-  ShoppingBag, Phone, MapPin, Eye, Printer,
-  Search, Download, Package, Truck, ExternalLink,
-  Calendar, Clock, Copy, X, AlertTriangle, CheckCircle2, Ban
+  ShoppingBag, Phone, Eye, Printer,
+  Search, Package, Truck, ExternalLink,
+  Clock, Copy, X, AlertTriangle, CheckCircle2, Ban
 } from 'lucide-react'
 import { toast } from 'sonner'
 import ShipmentModal from '@/app/components/shipmentModel'
@@ -51,7 +51,7 @@ export default function OrdersPage() {
     // 1. Status Filter (Enhanced)
     if (activeFilter !== 'all') {
       if(activeFilter === 'shipped') query = query.eq('delivery_status', 'shipped')
-      else if (activeFilter === 'needs_approval') query = query.eq('payment_status', 'needs_approval') // 👈 NEW
+      else if (activeFilter === 'needs_approval') query = query.eq('payment_status', 'needs_approval')
       else query = query.eq('delivery_status', activeFilter)
     }
 
@@ -75,19 +75,27 @@ export default function OrdersPage() {
     setLoading(false)
   }
 
-  // --- ACTIONS ---
+  // --- ACTIONS (Calls the new API) ---
   const handlePaymentVerification = async (id: number, decision: 'APPROVE' | 'REJECT') => {
-    const updates = decision === 'APPROVE' 
-      ? { payment_status: 'paid', status: 'processing' } // Auto-move to processing
-      : { payment_status: 'failed', status: 'cancelled' }
-    
-    const { error } = await supabase.from('orders').update(updates).eq('id', id)
-    
-    if (!error) {
-      toast.success(decision === 'APPROVE' ? "Payment Verified & Accepted!" : "Order Rejected")
-      fetchOrders()
-    } else {
-      toast.error("Update failed")
+    // Optimistic UI Update
+    const newStatus = decision === 'APPROVE' ? 'paid' : 'failed'
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, payment_status: newStatus } : o))
+    toast.info("Processing verification...")
+
+    try {
+      const res = await fetch('/api/order/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: id, decision })
+      })
+      
+      if (!res.ok) throw new Error("API Error")
+      
+      toast.success(decision === 'APPROVE' ? "Verified & Customer Notified!" : "Rejected & Notified")
+      fetchOrders() // Refresh to be sure
+    } catch (e) {
+      toast.error("Failed to sync with WhatsApp. Please try again.")
+      fetchOrders() // Revert UI on error
     }
   }
 
@@ -96,10 +104,6 @@ export default function OrdersPage() {
     o.item_name?.toLowerCase().includes(search.toLowerCase()) || 
     o.customer_phone?.includes(search)
   )
-
-  const downloadCSV = () => {
-    // ... (Keep your existing CSV logic)
-  }
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text); toast.success("Copied!")
@@ -139,7 +143,7 @@ export default function OrdersPage() {
             <div className="flex bg-secondbg border border-border p-1 rounded-xl overflow-x-auto no-scrollbar">
               {[
                 { id: 'all', label: 'All' },
-                { id: 'needs_approval', label: 'Needs Approval' }, // 👈 Critical Filter
+                { id: 'needs_approval', label: 'Needs Approval' },
                 { id: 'processing', label: 'Processing' },
                 { id: 'shipped', label: 'Shipped' }
               ].map((f) => (
@@ -160,7 +164,7 @@ export default function OrdersPage() {
                   <th className="px-6 py-4 w-[140px]">Date</th>
                   <th className="px-6 py-4">Order Details</th>
                   <th className="px-6 py-4">Amount</th>
-                  <th className="px-6 py-4">Verification</th> {/* 👈 Updated Column */}
+                  <th className="px-6 py-4">Verification</th>
                   <th className="px-6 py-4 text-right">Fulfillment</th>
                 </tr>
               </thead>
@@ -194,43 +198,59 @@ export default function OrdersPage() {
                         {order.payment_method === 'COD' && <div className="mt-1 text-[9px] font-bold text-orange-500">COD ORDER</div>}
                     </td>
                     
-                    {/* 4. VERIFICATION (THE CORE LOGIC) */}
+                    {/* 4. VERIFICATION COLUMN (The Core Logic) */}
                     <td className="px-6 py-6 align-top min-w-[200px]">
                       
-                      {/* CASE A: Needs Seller Approval (Manual Payment) */}
+                      {/* STATUS: NEEDS APPROVAL */}
                       {order.payment_status === 'needs_approval' && (
-                        <div className="space-y-2 animate-in slide-in-from-left-2">
-                           <div className="flex items-center gap-2 text-yellow-600 font-bold text-[10px] bg-yellow-50 px-2 py-1 rounded-md border border-yellow-100">
-                              <AlertTriangle size={12} /> Manual Verification
-                           </div>
+                        <div className="space-y-3 animate-in slide-in-from-left-2">
                            
-                           {/* Screenshot Button */}
-                           {order.screenshot_id && (
-                             <button onClick={() => setPreviewImage(order.screenshot_id)} className="flex items-center gap-1 text-[10px] font-bold text-primary hover:underline">
-                                <Eye size={12}/> View Proof / UTR
-                             </button>
-                           )}
+                           <div className="flex items-center gap-2 text-amber-600 font-bold text-[10px] bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-100 shadow-sm w-fit">
+                              <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+                              Action Required
+                           </div>
 
-                           {/* Action Buttons */}
-                           <div className="flex gap-2 mt-1">
-                             <button onClick={() => handlePaymentVerification(order.id, 'APPROVE')} className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-[9px] font-black uppercase hover:bg-green-700 shadow-md transition-all flex items-center gap-1">
-                                <CheckCircle2 size={12}/> Approve
+                           {/* PROOF VIEWER (Image or Text) */}
+                           <div className="bg-slate-50 border border-slate-100 rounded-lg p-2">
+                              {order.screenshot_id ? (
+                                 <button onClick={() => setPreviewImage(order.screenshot_id)} className="w-full flex items-center justify-center gap-1.5 text-[10px] font-bold text-blue-600 hover:underline">
+                                    <Eye size={12}/> View Screenshot
+                                 </button>
+                              ) : order.transaction_id ? (
+                                 <div className="text-[10px]">
+                                    <span className="text-muted-foreground font-semibold">UTR / Ref:</span>
+                                    <p className="font-mono font-bold text-slate-800 select-all">{order.transaction_id}</p>
+                                 </div>
+                              ) : (
+                                 <span className="text-[9px] text-red-400 italic">No proof attached</span>
+                              )}
+                           </div>
+
+                           <div className="flex gap-2">
+                             <button onClick={() => handlePaymentVerification(order.id, 'APPROVE')} className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg text-[9px] font-black uppercase hover:bg-green-700 shadow-md transition-all flex items-center justify-center gap-1">
+                                Accept
                              </button>
-                             <button onClick={() => handlePaymentVerification(order.id, 'REJECT')} className="bg-white border border-red-200 text-red-500 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase hover:bg-red-50 transition-all flex items-center gap-1">
-                                <Ban size={12}/> Reject
+                             <button onClick={() => handlePaymentVerification(order.id, 'REJECT')} className="flex-1 bg-white border border-red-200 text-red-500 px-3 py-2 rounded-lg text-[9px] font-black uppercase hover:bg-red-50 transition-all flex items-center justify-center gap-1">
+                                Reject
                              </button>
                            </div>
                         </div>
                       )}
 
-                      {/* CASE B: Awaiting Screenshot */}
-                      {order.payment_status === 'awaiting_screenshot' && order.payment_method !== 'COD' && (
-                         <span className="text-[10px] font-medium text-muted-foreground flex items-center gap-2">
-                            <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"/> Waiting for Proof...
-                         </span>
+                      {/* STATUS: AWAITING SCREENSHOT */}
+                      {(order.payment_status === 'awaiting_screenshot' || !order.payment_status) && order.payment_method !== 'COD' && (
+                         <div className="opacity-60">
+                            <span className="text-[10px] font-bold text-slate-500 flex items-center gap-2 mb-2">
+                               <Clock size={12} /> Waiting for user...
+                            </span>
+                            {/* DEBUG: Force verify for testing */}
+                            <button onClick={() => handlePaymentVerification(order.id, 'APPROVE')} className="text-[9px] text-blue-500 underline decoration-dotted">
+                               [Test] Force Approve
+                            </button>
+                         </div>
                       )}
 
-                      {/* CASE C: Verified / Paid */}
+                      {/* STATUS: PAID */}
                       {(order.payment_status === 'paid' || order.status === 'PAID') && (
                          <div className="space-y-1">
                             <span className="bg-green-500/10 text-green-600 border border-green-500/20 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 w-fit">
@@ -241,14 +261,7 @@ export default function OrdersPage() {
                          </div>
                       )}
 
-                      {/* CASE D: COD */}
-                      {order.payment_method === 'COD' && order.status !== 'PAID' && (
-                         <span className="bg-orange-500/10 text-orange-600 border border-orange-500/20 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1 w-fit">
-                           📦 Collect Cash
-                         </span>
-                      )}
-
-                      {/* CASE E: Failed */}
+                      {/* STATUS: FAILED */}
                       {order.payment_status === 'failed' && (
                          <span className="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest w-fit">
                            ❌ Payment Failed
@@ -256,9 +269,9 @@ export default function OrdersPage() {
                       )}
                     </td>
 
-                    {/* 5. Fulfillment Actions */}
+                    {/* 5. FULFILLMENT (Ship Button) */}
                     <td className="px-6 py-6 align-top text-right">
-                      {order.delivery_status === 'processing' && order.payment_status === 'paid' ? (
+                      {order.delivery_status === 'processing' && (order.payment_status === 'paid' || order.status === 'PAID') ? (
                         <button onClick={() => setShippingOrder(order)} className="bg-foreground text-background px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all shadow-md flex items-center gap-2 ml-auto">
                           <Package size={14} /> Ship Now
                         </button>
@@ -295,16 +308,28 @@ export default function OrdersPage() {
       </div>
 
       {/* --- IMAGE MODAL --- */}
+{/* --- IMAGE MODAL --- */}
       {previewImage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className="bg-card rounded-[2rem] p-2 max-w-sm w-full relative shadow-2xl animate-in zoom-in-95 border border-border">
-            <button onClick={() => setPreviewImage(null)} className="absolute -top-12 right-0 p-2 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors"><X size={24} /></button>
-            <div className="aspect-[3/5] w-full bg-black rounded-[1.5rem] overflow-hidden flex items-center justify-center">
-               {/* NOTE: You need a backend proxy to fetch this if it's a WhatsApp ID. */}
-               <img src={`https://graph.facebook.com/v18.0/${previewImage}/`} alt="Proof" className="w-full h-full object-contain" />
+            
+            <button 
+              onClick={() => setPreviewImage(null)} 
+              className="absolute -top-12 right-0 p-2 bg-white/10 text-white rounded-full hover:bg-white/20 transition-colors"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="aspect-[3/5] w-full bg-black rounded-[1.5rem] overflow-hidden flex items-center justify-center relative">
+               <img 
+                 src={`/api/media/${previewImage}`} 
+                 alt="Payment Proof" 
+                 className="w-full h-full object-contain" 
+               />
             </div>
+
             <div className="p-4 text-center">
-                <p className="text-xs text-muted-foreground">ID: {previewImage}</p>
+                <p className="text-xs text-muted-foreground">Media ID: {previewImage}</p>
             </div>
           </div>
         </div>
