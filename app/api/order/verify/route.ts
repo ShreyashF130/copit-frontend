@@ -5,19 +5,32 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { orderId, decision } = body
 
+    const API_KEY = process.env.ADMIN_SECRET_KEY
+    const API_URL = process.env.NEXT_PUBLIC_API_URL
+
+    // Safety Check
+    if (!API_KEY || !API_URL) {
+        console.error("Missing Server Config (API_KEY or API_URL)")
+        return NextResponse.json({ error: "Server Configuration Error" }, { status: 500 })
+    }
+
     // 🔒 CALL FASTAPI SECURELY
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/dashboard/verify-order`, {
+    const res = await fetch(`${API_URL}/dashboard/verify-order`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-admin-secret': process.env.ADMIN_SECRET_KEY! 
+        'x-admin-secret': API_KEY 
       },
-      body: JSON.stringify({ order_id: orderId, decision: decision })
+      // Ensure data structure matches Pydantic model
+      body: JSON.stringify({ 
+          order_id: Number(orderId), // Ensure it's a number
+          decision: decision 
+      })
     })
 
     if (!res.ok) {
-        // If Python rejects it (401), we throw error here
-        const err = await res.json()
+        const err = await res.json().catch(() => ({}))
+        console.error("Backend Error:", err)
         throw new Error(err.detail || "Backend Rejected Request")
     }
     
