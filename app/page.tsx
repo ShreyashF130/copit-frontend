@@ -61,9 +61,10 @@ export default async function LandingPage() {
                  Get Started for Free <ArrowRight size={20} />
                </Link>
              )}
-             <Link href="/demo" className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-2">
-                See How It Works
+             <Link href="/workflow" className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-2">
+                Workflow
              </Link>
+             
           </div>
 
           <div className="mt-20 pt-8 border-t border-slate-200/60 dark:border-slate-800/60">

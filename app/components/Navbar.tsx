@@ -51,7 +51,7 @@ export default function Navbar({ user }: { user: any }) {
         <div className="flex items-center gap-6">
           <div className="hidden md:flex items-center gap-8 text-sm font-bold text-muted-foreground">
             <a href="#features" className="hover:text-primary transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-primary transition-colors">How it Works</a>
+            <a href="/demo" className="hover:text-primary transition-colors">Demo</a>
           </div>
           
           <ThemeToggle />
