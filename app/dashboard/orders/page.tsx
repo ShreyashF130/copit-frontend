@@ -262,18 +262,19 @@ const handlePaymentVerification = async (id: number, decision: 'APPROVE' | 'REJE
                         </div>
                       )}
 
-                      {/* STATUS: AWAITING SCREENSHOT */}
-                      {(order.payment_status === 'awaiting_screenshot' || !order.payment_status) && order.payment_method !== 'COD' && (
-                         <div className="opacity-60">
-                            <span className="text-[10px] font-bold text-slate-500 flex items-center gap-2 mb-2">
-                               <Clock size={12} /> Waiting for user...
-                            </span>
-                            {/* DEBUG: Force verify for testing */}
-                            <button onClick={() => handlePaymentVerification(order.id, 'APPROVE')} className="text-[9px] text-blue-500 underline decoration-dotted">
-                               [Test] Force Approve
-                            </button>
-                         </div>
-                      )}
+                      {/* STATUS: AWAITING PROOF / SCREENSHOT */}
+{(order.payment_status === 'awaiting_screenshot' || order.payment_status === 'awaiting_proof' || !order.payment_status) && order.payment_method !== 'COD' && (
+   <div className="opacity-60">
+      <span className="text-[10px] font-bold text-slate-500 flex items-center gap-2 mb-2">
+         <Clock size={12} /> 
+         {order.payment_method === 'ONLINE' ? 'Waiting for Gateway...' : 'Waiting for user...'}
+      </span>
+      {/* DEBUG: Force verify for testing */}
+      <button onClick={() => handlePaymentVerification(order.id, 'APPROVE')} className="text-[9px] text-blue-500 underline decoration-dotted">
+         [Test] Force Approve
+      </button>
+   </div>
+)}
 
                       {/* STATUS: PAID */}
                      {/* CASE C: Verified / Paid */}
