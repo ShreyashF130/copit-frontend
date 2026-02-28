@@ -16,7 +16,10 @@ export default function ShipmentModal({ order, onClose, onSuccess }: { order: Or
   const [mode, setMode] = useState<'rocket' | 'manual'>('rocket')
   const [loading, setLoading] = useState(false)
   
-
+  // ⚖️ The Weight State
+  const [packageWeight, setPackageWeight] = useState("0.5")
+  
+  // Manual States
   const [courierName, setCourierName] = useState('')
   const [trackingLink, setTrackingLink] = useState('')
 
@@ -26,20 +29,21 @@ export default function ShipmentModal({ order, onClose, onSuccess }: { order: Or
   async function handleShip() {
     setLoading(true)
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL 
-      
       let url = ''
       let body = {}
 
       if (mode === 'rocket') {
-        url = `${baseUrl}/api/ship/rocket`
-        body = { order_id: order.id }
-      } else {
-        url = `${baseUrl}/api/ship/manual`
+        url = '/api/shipping/ship' 
         body = { 
-          order_id: order.id, 
-          courier_name: courierName, 
-          tracking_link: trackingLink 
+            orderId: order.id,
+            weight: parseFloat(packageWeight) // 👈 Sending weight to proxy
+         } 
+      } else {
+        url = '/api/shipping/manual'
+        body = { 
+          orderId: order.id, 
+          courierName: courierName, 
+          trackingLink: trackingLink 
         }
       }
 
@@ -50,10 +54,9 @@ export default function ShipmentModal({ order, onClose, onSuccess }: { order: Or
       })
       const data = await res.json()
 
-      if (data.status === 'success') {
+      if (res.ok && data.success) {
         toast.success(mode === 'rocket' ? "Rocket Launched! 🚀" : "Manual Shipment Updated!")
         
-        // --- 🚀 FIX: AUTO OPEN PDF LABEL ---
         if (data.label_url) {
             window.open(data.label_url, '_blank')
         }
@@ -61,17 +64,11 @@ export default function ShipmentModal({ order, onClose, onSuccess }: { order: Or
         onSuccess() 
         onClose()   
       } else {
-        if (data.message.includes("Pincode")) {
-          toast.error("STOP: Customer address is missing Pincode!", {
-            description: "Please edit the order address in the database first."
-          })
-        } else {
-          toast.error(data.message)
-        }
+        toast.error(data.error || "Failed to process shipment.")
       }
     } catch (e) {
       console.error(e)
-      toast.error("Connection Error. Is the backend running?")
+      toast.error("Network Error. Check your connection.")
     }
     setLoading(false)
   }
@@ -130,8 +127,26 @@ export default function ShipmentModal({ order, onClose, onSuccess }: { order: Or
                 </p>
               </div>
               
+              {/* ⚖️ THE WEIGHT INPUT FIELD */}
+              {isEnabled && isPro && (
+                  <div className="mt-6 text-left animate-in slide-in-from-bottom-2 fade-in">
+                    <label className="text-[10px] font-black uppercase text-blue-900 ml-2 mb-1 block">Package Weight (KG)</label>
+                    <input 
+                      type="number" 
+                      step="0.1" 
+                      min="0.1"
+                      value={packageWeight}
+                      onChange={(e) => setPackageWeight(e.target.value)}
+                      className="w-full p-4 bg-white rounded-xl font-bold text-blue-900 outline-none focus:ring-2 focus:ring-blue-600 border border-blue-200 shadow-sm"
+                    />
+                    <p className="text-[9px] text-blue-600/70 mt-2 font-bold px-2">
+                      ⚠️ Enter exact weight (including box) to avoid Shiprocket penalties.
+                    </p>
+                  </div>
+              )}
+
               {!isEnabled && isPro && (
-                <div className="bg-amber-100 text-amber-800 text-xs font-bold p-3 rounded-xl flex items-center gap-2 justify-center">
+                <div className="bg-amber-100 text-amber-800 text-xs font-bold p-3 rounded-xl flex items-center gap-2 justify-center mt-4">
                    <AlertTriangle size={14}/> Enable Shiprocket in Settings first.
                 </div>
               )}
@@ -165,7 +180,7 @@ export default function ShipmentModal({ order, onClose, onSuccess }: { order: Or
 
         <button 
           onClick={handleShip}
-          disabled={loading || (mode === 'manual' && (!courierName || !trackingLink)) || (mode === 'rocket' && (!isPro || !isEnabled))}
+          disabled={loading || (mode === 'manual' && (!courierName || !trackingLink)) || (mode === 'rocket' && (!isPro || !isEnabled || !packageWeight))}
           className="w-full mt-8 py-5 bg-slate-900 text-white rounded-2xl font-black text-lg uppercase tracking-widest hover:bg-blue-600 hover:shadow-xl hover:shadow-blue-200 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:bg-slate-900"
         >
           {loading ? <Loader2 className="animate-spin" /> : (mode === 'rocket' ? "🚀 LAUNCH SHIPMENT" : "💾 UPDATE ORDER")}
