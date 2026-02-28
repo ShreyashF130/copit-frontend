@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react' 
+import { useState, useEffect, useMemo } from 'react' 
+import { useParams } from 'next/navigation' // 👈 THE FIX: Safe Client-Side Routing
 import { createClient } from '@/app/lib/supabase-browser'
 import { 
   ShoppingBag, Search, Plus, Minus, X, Loader2, 
@@ -25,7 +26,11 @@ type Item = {
 }
 type Review = { rating: number; comment: string; customer_name: string; created_at: string }
 
-export default function CompleteShopPage({ params }: { params: Promise<{ slug: string }> }) {
+export default function CompleteShopPage() {
+  // 👈 THE FIX: Extract slug safely without Promises
+  const params = useParams()
+  const slug = params?.slug as string
+
   // --- STATE ---
   const [shop, setShop] = useState<any>(null)
   const [items, setItems] = useState<Item[]>([])
@@ -39,12 +44,11 @@ export default function CompleteShopPage({ params }: { params: Promise<{ slug: s
   const [searchQuery, setSearchQuery] = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
   
-  // 💾 PERSISTENCE STATE (Initialized empty, loaded later to prevent hydration mismatch)
+  // 💾 PERSISTENCE STATE 
   const [wishlist, setWishlist] = useState<number[]>([])
   const [cart, setCart] = useState<{ id: string; item: Item; variant?: Variant; qty: number }[]>([])
-  const [isStorageLoaded, setIsStorageLoaded] = useState(false) // Prevents overwriting storage on init
+  const [isStorageLoaded, setIsStorageLoaded] = useState(false) 
 
-  // Cart & Product Logic
   const [selections, setSelections] = useState<Record<string, string>>({})
 
   // Coupon State
@@ -52,17 +56,17 @@ export default function CompleteShopPage({ params }: { params: Promise<{ slug: s
   const [appliedCoupon, setAppliedCoupon] = useState<{code: string, value: number, type: 'percent' | 'flat'} | null>(null)
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false)
   
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  // 👈 THE FIX: Sanitize the URL to prevent http://localhost:8000//api
+  const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  const apiUrl = rawApiUrl.replace(/\/$/, '');
 
   // --- DATA FETCHING ---
   useEffect(() => {
+    if (!slug) return; // Wait for Next.js router to be ready
+
     const fetchData = async () => {
       try {
-        const resolvedParams = await params
-        const slug = resolvedParams.slug
-        
         const res = await fetch(`${apiUrl}/api/storefront/${slug}`)
-        
         if (!res.ok) throw new Error("Shop not found")
         
         const data = await res.json()
@@ -76,14 +80,11 @@ export default function CompleteShopPage({ params }: { params: Promise<{ slug: s
       }
     }
     fetchData()
-  }, [])
+  }, [slug, apiUrl]) // 👈 Dependencies added
 
   // --- 💾 PERSISTENCE LOGIC ---
-  
-  // 1. Load from Storage when Shop ID is available (Internal ID used for storage safety)
   useEffect(() => {
     if (!shop?.id) return;
-
     try {
         const localCart = localStorage.getItem(`copit-cart-${shop.id}`)
         const localWish = localStorage.getItem(`copit-wish-${shop.id}`)
@@ -103,13 +104,11 @@ export default function CompleteShopPage({ params }: { params: Promise<{ slug: s
     }
   }, [shop?.id])
 
-  // 2. Save to Storage whenever Cart Changes
   useEffect(() => {
     if (!shop?.id || !isStorageLoaded) return;
     localStorage.setItem(`copit-cart-${shop.id}`, JSON.stringify(cart))
   }, [cart, shop?.id, isStorageLoaded])
 
-  // 3. Save to Storage whenever Wishlist Changes
   useEffect(() => {
     if (!shop?.id || !isStorageLoaded) return;
     localStorage.setItem(`copit-wish-${shop.id}`, JSON.stringify(wishlist))
@@ -145,7 +144,6 @@ export default function CompleteShopPage({ params }: { params: Promise<{ slug: s
   const isOutOfStock = currentStock <= 0
 
   // --- ACTIONS ---
-
   const toggleWishlist = (e: React.MouseEvent, id: number) => {
     e.stopPropagation()
     setWishlist(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -254,8 +252,6 @@ export default function CompleteShopPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="min-h-screen bg-background pb-32 font-sans selection:bg-primary/20 animate-in fade-in duration-500">
-      
-      {/* ⚠️ THE FIX: This now uses the professional slug format for sharing! */}
       <PublicHeader shop={shop} storeLink={`/shop/${shop.slug || shop.id}`} />
 
       {/* --- SEARCH & CATEGORIES --- */}
@@ -299,7 +295,6 @@ export default function CompleteShopPage({ params }: { params: Promise<{ slug: s
 
       {/* --- MAIN CONTENT --- */}
       <main className="px-4 mt-8 max-w-5xl mx-auto min-h-[60vh]">
-        {/* REVIEW TOGGLE BUTTON */}
         {reviews.length > 0 && (
             <div className="mb-8 flex justify-center">
                 <button onClick={() => setShowReviewsModal(true)} className="group bg-card border border-border rounded-full px-6 py-3 flex items-center gap-3 shadow-sm hover:shadow-md transition-all active:scale-95 hover:border-primary/30">
@@ -333,12 +328,27 @@ export default function CompleteShopPage({ params }: { params: Promise<{ slug: s
               const isBaseOOS = !item.attributes?.has_complex_variants && (item.stock_quantity || 0) <= 0;
               return (
                 <div key={item.id} onClick={() => { setSelectedItem(item); setSelections({}); }} className="group bg-card rounded-[2rem] p-3 pb-5 flex flex-col gap-3 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative border border-border hover:border-primary/20">
-                  <div className="aspect-[3/4] w-full overflow-hidden rounded-2xl bg-secondbg relative">
+                  <div className="aspect-[3/4] w-full overflow-hidden rounded-2xl bg-secondbg relative flex items-center justify-center">
+                      {/* 🚀 THE FIX: Fault-Tolerant Image Tag */}
                       {item.image_url ? (
-                        <img src={item.image_url} className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${isBaseOOS ? 'grayscale opacity-50' : ''}`} />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-secondbg text-muted-foreground/30 font-bold">No Image</div>
-                      )}
+                        <img 
+                          src={item.image_url} 
+                          className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${isBaseOOS ? 'grayscale opacity-50' : ''}`} 
+                          onError={(e) => {
+                             // If the database has a broken link, hide the image and show the fallback instantly
+                             e.currentTarget.style.display = 'none';
+                             if(e.currentTarget.nextElementSibling) {
+                               (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                             }
+                          }}
+                        />
+                      ) : null}
+                      
+                      {/* Fallback that shows if URL is null OR if the onError triggers */}
+                      <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-secondbg text-muted-foreground/30 font-bold" style={{ display: item.image_url ? 'none' : 'flex' }}>
+                        No Image
+                      </div>
+
                       <button onClick={(e) => toggleWishlist(e, item.id)} className="absolute top-2 right-2 p-2 bg-card/80 backdrop-blur-sm rounded-full text-destructive hover:bg-card hover:scale-110 transition-all z-10 shadow-sm">
                         <Heart size={16} fill={wishlist.includes(item.id) ? "currentColor" : "none"} />
                       </button>
@@ -401,13 +411,24 @@ export default function CompleteShopPage({ params }: { params: Promise<{ slug: s
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm transition-opacity" onClick={() => setSelectedItem(null)} />
           <div className="bg-card w-full max-w-lg sm:rounded-[2.5rem] rounded-t-[2.5rem] p-6 shadow-2xl relative animate-in slide-in-from-bottom-20 duration-300 flex flex-col max-h-[95vh] border border-border">
             <button onClick={() => setSelectedItem(null)} className="absolute right-6 top-6 p-2 bg-secondbg rounded-full text-muted-foreground hover:text-foreground z-10"><X size={20} /></button>
-            <div className="w-full h-72 sm:h-80 bg-secondbg rounded-3xl mb-6 overflow-hidden flex-shrink-0 relative border border-border">
+            <div className="w-full h-72 sm:h-80 bg-secondbg rounded-3xl mb-6 overflow-hidden flex-shrink-0 relative border border-border flex items-center justify-center">
                {currentImage ? (
-                   <img src={currentImage} className={`w-full h-full object-cover transition-all duration-500 ${isOutOfStock ? 'grayscale opacity-50' : ''}`} />
-               ) : (
-                   <div className="w-full h-full flex items-center justify-center text-muted-foreground/30 font-bold">No Image</div>
-               )}
-               {isOutOfStock && <div className="absolute inset-0 flex items-center justify-center"><span className="bg-foreground text-background px-6 py-2 rounded-full font-black uppercase">Out of Stock</span></div>}
+                   <img 
+                     src={currentImage} 
+                     className={`w-full h-full object-cover transition-all duration-500 ${isOutOfStock ? 'grayscale opacity-50' : ''}`}
+                     onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        if(e.currentTarget.nextElementSibling) {
+                          (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
+                        }
+                     }} 
+                   />
+               ) : null}
+               <div className="absolute inset-0 w-full h-full flex items-center justify-center text-muted-foreground/30 font-bold" style={{ display: currentImage ? 'none' : 'flex' }}>
+                   No Image
+               </div>
+               
+               {isOutOfStock && <div className="absolute inset-0 flex items-center justify-center"><span className="bg-foreground text-background px-6 py-2 rounded-full font-black uppercase z-20">Out of Stock</span></div>}
             </div>
             <div className="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar">
               <div>
@@ -487,12 +508,15 @@ export default function CompleteShopPage({ params }: { params: Promise<{ slug: s
                  const stockLimit = c.variant ? c.variant.stock : c.item.stock_quantity;
                  return (
                   <div key={c.id} className="flex gap-4 items-start py-2 border-b border-border last:border-0 pb-4">
-                    <div className="w-20 h-20 rounded-2xl bg-secondbg overflow-hidden flex-shrink-0 border border-border">
+                    <div className="w-20 h-20 rounded-2xl bg-secondbg overflow-hidden flex-shrink-0 border border-border flex items-center justify-center">
                       {c.variant?.image || c.item.image_url ? (
-                        <img src={c.variant?.image || c.item.image_url} className="w-full h-full object-cover" />
-                      ) : (
-                         <div className="w-full h-full bg-secondbg flex items-center justify-center text-xs font-bold text-muted-foreground">IMG</div>
-                      )}
+                        <img 
+                          src={c.variant?.image || c.item.image_url} 
+                          className="w-full h-full object-cover" 
+                          onError={(e) => { e.currentTarget.style.display = 'none'; if(e.currentTarget.nextElementSibling) (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex'; }}
+                        />
+                      ) : null}
+                      <div className="absolute w-full h-full bg-secondbg flex items-center justify-center text-xs font-bold text-muted-foreground" style={{ display: (c.variant?.image || c.item.image_url) ? 'none' : 'flex' }}>IMG</div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-foreground text-sm truncate">{c.item.name}</p>

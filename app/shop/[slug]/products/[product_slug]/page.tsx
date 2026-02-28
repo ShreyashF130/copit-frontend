@@ -10,14 +10,19 @@ export default function PublicProductPage() {
   const params = useParams()
   const searchParams = useSearchParams()
   
-  const shop_slug = params?.shop_slug as string
+  // Catch 'slug' if the folder is named [slug], or 'shop_slug' if it's named [shop_slug]
+  const shop_slug = (params?.slug || params?.shop_slug) as string
   const product_slug = params?.product_slug as string
+  
   const ref = searchParams?.get('ref')
   const source = ref ? ref.toUpperCase() : 'DIRECT'
 
+  // --- STATE DECLARATIONS ---
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  // 🚨 THE FIX: You must define imgError before you can use it!
+  const [imgError, setImgError] = useState(false) 
 
   const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
   const apiUrl = rawApiUrl.replace(/\/$/, '')
@@ -27,7 +32,8 @@ export default function PublicProductPage() {
 
     const fetchItem = async () => {
       try {
-        const res = await fetch(`${apiUrl}/api/storefront/${shop_slug}/item/${product_slug}`)
+        const res = await fetch(`${apiUrl}/api/storefront/${shop_slug}/products/${product_slug}`)
+        
         if (!res.ok) throw new Error("Item not found")
         const json = await res.json()
         setData(json)
@@ -59,10 +65,18 @@ export default function PublicProductPage() {
         
         {/* PRODUCT IMAGE */}
         <div className="relative aspect-square w-full bg-card rounded-[2.5rem] overflow-hidden shadow-2xl border border-border md:sticky md:top-24 group">
-            {item.image_url ? (
-               <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+            {/* Gracefully fallback to the initial if the image URL is broken */}
+            {item.image_url && !imgError ? (
+               <img 
+                 src={item.image_url} 
+                 alt={item.name} 
+                 onError={() => setImgError(true)} 
+                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" 
+               />
             ) : (
-               <div className="w-full h-full flex items-center justify-center text-muted-foreground/20 font-black text-9xl uppercase italic bg-secondbg">{item.name[0]}</div>
+               <div className="w-full h-full flex items-center justify-center text-muted-foreground/20 font-black text-9xl uppercase italic bg-secondbg">
+                 {item.name[0]}
+               </div>
             )}
             <div className="absolute top-4 right-4 bg-card/90 backdrop-blur-md rounded-full px-4 py-1.5 text-xs font-black uppercase tracking-widest border border-border">
                 {item.category || 'Product'}
@@ -115,7 +129,7 @@ export default function PublicProductPage() {
                             <Link key={prod.id} href={`/shop/${shop.slug}/products/${prod.slug}?ref=${source.toLowerCase()}`} className="group bg-card p-3 rounded-2xl border border-border hover:shadow-lg hover:border-primary/20 transition-all">
                                 <div className="aspect-square bg-secondbg rounded-xl mb-3 overflow-hidden">
                                     {prod.image_url ? (
-                                      <img src={prod.image_url} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                      <img src={prod.image_url} onError={(e) => { e.currentTarget.style.display = 'none' }} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                     ) : (
                                       <div className="w-full h-full flex items-center justify-center text-muted-foreground"><Package size={16}/></div>
                                     )}
