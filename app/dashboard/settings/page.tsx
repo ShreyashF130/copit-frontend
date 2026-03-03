@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/app/lib/supabase-browser'
 import { toast } from 'sonner'
-import { Save, Store, MessageSquare, ShieldAlert, ImageIcon, Loader2 } from 'lucide-react'
+import { Save, Store, MessageSquare, ShieldAlert, ImageIcon, Loader2, Instagram } from 'lucide-react'
 
 export default function GeneralSettings() {
   const [shop, setShop] = useState<any>(null)
@@ -46,10 +46,15 @@ export default function GeneralSettings() {
     setLoading(true)
     const formData = new FormData(e.currentTarget)
     
+    // 🚨 THE FIX: IDIOT-PROOF DATA SANITIZATION
+    const rawInsta = formData.get('instagram_handle')?.toString() || ''
+    const cleanInsta = rawInsta.replace('@', '').replace('https://instagram.com/', '').trim()
+    
     const updates = {
       name: formData.get('shop_name'),
       welcome_message: formData.get('welcome_msg'),
       return_policy: formData.get('return_policy'),
+      instagram_handle: cleanInsta, // Save the clean handle
       logo_url: shop.logo_url // Save the uploaded URL
     }
 
@@ -98,6 +103,18 @@ export default function GeneralSettings() {
                         defaultValue={shop.name} 
                         className="w-full p-4 mt-1 bg-secondbg text-foreground rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary border border-transparent focus:bg-card transition-all" 
                     />
+                </div>
+                <div>
+                    <label className="text-xs font-black uppercase text-muted-foreground ml-2 flex items-center gap-2"><Instagram size={12}/> Instagram Handle</label>
+                    <div className="relative mt-1">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">@</span>
+                        <input 
+                            name="instagram_handle" 
+                            defaultValue={shop.instagram_handle} 
+                            placeholder="yourstore" 
+                            className="w-full p-4 pl-8 bg-secondbg text-foreground rounded-2xl font-bold outline-none focus:ring-2 focus:ring-primary border border-transparent focus:bg-card transition-all placeholder:text-muted-foreground/50" 
+                        />
+                    </div>
                 </div>
                 <div>
                     <label className="text-xs font-black uppercase text-muted-foreground ml-2 flex items-center gap-2"><MessageSquare size={12}/> Bot Welcome Message</label>

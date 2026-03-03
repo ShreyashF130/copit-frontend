@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/app/lib/supabase-browser'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Store, Clock, CreditCard, ShieldCheck, Loader2, Lock, CheckCircle2 } from 'lucide-react'
+import { Store, Clock, CreditCard, ShieldCheck, Loader2, Lock, CheckCircle2, Instagram } from 'lucide-react'
 import Link from 'next/link'
 
 export default function ShopSetupPage() {
@@ -35,10 +35,15 @@ export default function ShopSetupPage() {
     setLoading(true)
     const formData = new FormData(e.currentTarget)
     
+    // 🚨 THE FIX: IDIOT-PROOF DATA SANITIZATION
+    const rawInsta = formData.get('instagram_handle')?.toString() || ''
+    const cleanInsta = rawInsta.replace('@', '').replace('https://instagram.com/', '').trim()
+    
     const shopData = {
       name: formData.get('name'),
       phone_number: formData.get('phone'),
       category: formData.get('category'),
+      instagram_handle: cleanInsta, // Save the clean handle
       upi_id: formData.get('upi'),
       open_time: formData.get('open_time'),
       close_time: formData.get('close_time'),
@@ -89,9 +94,16 @@ export default function ShopSetupPage() {
                 <label className="text-xs font-bold text-muted-foreground uppercase ml-1">WhatsApp Number</label>
                 <input name="phone" type="tel" placeholder="e.g. 919876543210" required className="w-full p-4 bg-secondbg rounded-2xl font-bold text-foreground outline-none focus:ring-2 focus:ring-primary border border-transparent focus:bg-card transition-all placeholder:text-muted-foreground/50" />
               </div>
-              <div className="col-span-full space-y-2">
+              <div className="space-y-2">
                 <label className="text-xs font-bold text-muted-foreground uppercase ml-1">Category</label>
-                <input name="category" placeholder="e.g. Fashion, Electronics, Food" required className="w-full p-4 bg-secondbg rounded-2xl font-bold text-foreground outline-none focus:ring-2 focus:ring-primary border border-transparent focus:bg-card transition-all placeholder:text-muted-foreground/50" />
+                <input name="category" placeholder="e.g. Fashion, Electronics" required className="w-full p-4 bg-secondbg rounded-2xl font-bold text-foreground outline-none focus:ring-2 focus:ring-primary border border-transparent focus:bg-card transition-all placeholder:text-muted-foreground/50" />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-muted-foreground uppercase ml-1 flex items-center gap-1"><Instagram size={12}/> Instagram Handle</label>
+                <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">@</span>
+                    <input name="instagram_handle" placeholder="yourstore" className="w-full p-4 pl-8 bg-secondbg rounded-2xl font-bold text-foreground outline-none focus:ring-2 focus:ring-primary border border-transparent focus:bg-card transition-all placeholder:text-muted-foreground/50" />
+                </div>
               </div>
             </div>
           </section>
