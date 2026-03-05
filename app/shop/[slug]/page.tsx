@@ -21,7 +21,7 @@ type Item = {
   price: number;
   category: string; 
   image_url: string;
-  stock_quantity: number; 
+  stock_count: number; 
   attributes?: { 
     specs?: { name: string; options: string[] }[]; 
     variants?: Variant[]; 
@@ -152,7 +152,7 @@ export default function CompleteShopPage() {
 
   const currentPrice = activeVariant ? activeVariant.price : selectedItem?.price || 0
   const currentImage = activeVariant?.image || selectedItem?.image_url
-  const currentStock = activeVariant ? activeVariant.stock : selectedItem?.stock_quantity || 0
+  const currentStock = activeVariant ? activeVariant.stock : selectedItem?.stock_count || 0
   const isOutOfStock = currentStock <= 0
 
   // --- ACTIONS ---
@@ -346,7 +346,7 @@ export default function CompleteShopPage() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredItems.map(item => {
-              const isBaseOOS = !hasItemSpecs(item) && (item.stock_quantity || 0) <= 0;
+              const isBaseOOS = !hasItemSpecs(item) && (item.stock_count || 0) <= 0;
               return (
                 <div key={item.id} onClick={() => { setSelectedItem(item); setSelections({}); }} className="group bg-card rounded-[2rem] p-3 pb-5 flex flex-col gap-3 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative border border-border hover:border-primary/20">
                   <div className="aspect-[3/4] w-full overflow-hidden rounded-2xl bg-secondbg relative flex items-center justify-center">
@@ -542,7 +542,7 @@ export default function CompleteShopPage() {
                   <button onClick={() => setIsCartOpen(false)} className="text-primary font-bold text-sm hover:underline">Start Shopping</button>
                 </div>
               ) : cart.map(c => {
-                 const stockLimit = c.variant ? c.variant.stock : c.item.stock_quantity;
+                 const stockLimit = c.variant ? c.variant.stock : c.item.stock_count;
                  return (
                   <div key={c.id} className="flex gap-4 items-start py-2 border-b border-border last:border-0 pb-4">
                     <div className="w-20 h-20 rounded-2xl bg-secondbg overflow-hidden flex-shrink-0 border border-border flex items-center justify-center relative">
