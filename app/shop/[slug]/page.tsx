@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react' 
-import { useParams } from 'next/navigation' // 👈 THE FIX: Safe Client-Side Routing
+import { useParams } from 'next/navigation'
 import { createClient } from '@/app/lib/supabase-browser'
 import { 
   ShoppingBag, Search, Plus, Minus, X, Loader2, 
@@ -22,12 +22,15 @@ type Item = {
   category: string; 
   image_url: string;
   stock_quantity: number; 
-  attributes?: { specs: { name: string; options: string[] }[]; variants: Variant[]; has_complex_variants: boolean; };
+  attributes?: { 
+    specs?: { name: string; options: string[] }[]; 
+    variants?: Variant[]; 
+    has_complex_variants?: boolean; 
+  };
 }
 type Review = { rating: number; comment: string; customer_name: string; created_at: string }
 
 export default function CompleteShopPage() {
-  // 👈 THE FIX: Extract slug safely without Promises
   const params = useParams()
   const slug = params?.slug as string
 
@@ -56,13 +59,12 @@ export default function CompleteShopPage() {
   const [appliedCoupon, setAppliedCoupon] = useState<{code: string, value: number, type: 'percent' | 'flat'} | null>(null)
   const [isValidatingCoupon, setIsValidatingCoupon] = useState(false)
   
-  // 👈 THE FIX: Sanitize the URL to prevent http://localhost:8000//api
   const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
   const apiUrl = rawApiUrl.replace(/\/$/, '');
 
   // --- DATA FETCHING ---
   useEffect(() => {
-    if (!slug) return; // Wait for Next.js router to be ready
+    if (!slug) return;
 
     const fetchData = async () => {
       try {
@@ -80,7 +82,7 @@ export default function CompleteShopPage() {
       }
     }
     fetchData()
-  }, [slug, apiUrl]) // 👈 Dependencies added
+  }, [slug, apiUrl])
 
   // --- 💾 PERSISTENCE LOGIC ---
   useEffect(() => {
@@ -114,7 +116,6 @@ export default function CompleteShopPage() {
     localStorage.setItem(`copit-wish-${shop.id}`, JSON.stringify(wishlist))
   }, [wishlist, shop?.id, isStorageLoaded])
 
-
   // --- COMPUTED STATE ---
   const categories = useMemo(() => {
     const cats = new Set(items.map(i => i.category || 'General'))
@@ -130,12 +131,23 @@ export default function CompleteShopPage() {
     })
   }, [items, searchQuery, activeCategory])
 
+  // 🚨 THE FIX: Robust Active Variant Calculation
+  // We no longer rely on a flaky boolean flag. We check if the data arrays actually exist.
   const activeVariant = useMemo(() => {
-    if (!selectedItem?.attributes?.has_complex_variants) return null
-    const specValues = selectedItem.attributes.specs.map(s => selections[s.name]).filter(Boolean)
-    if (specValues.length < selectedItem.attributes.specs.length) return null
-    const targetTitle = specValues.join(' / ') 
-    return selectedItem.attributes.variants.find(v => v.title === targetTitle) || null
+    const specs = selectedItem?.attributes?.specs;
+    const variants = selectedItem?.attributes?.variants;
+    
+    // If no specs exist, this is a simple product.
+    if (!specs || !Array.isArray(specs) || specs.length === 0) return null;
+    if (!variants || !Array.isArray(variants)) return null;
+
+    // Check if the user has selected an option for EVERY spec
+    const specValues = specs.map(s => selections[s.name]).filter(Boolean);
+    if (specValues.length < specs.length) return null; // Incomplete selection
+
+    // Find the matching variant based on the combined title (e.g., "Red / Large")
+    const targetTitle = specValues.join(' / ');
+    return variants.find(v => v.title === targetTitle) || null;
   }, [selectedItem, selections])
 
   const currentPrice = activeVariant ? activeVariant.price : selectedItem?.price || 0
@@ -152,14 +164,19 @@ export default function CompleteShopPage() {
 
   const addToCart = () => {
     if (!selectedItem) return
-    if (selectedItem.attributes?.has_complex_variants && !activeVariant) {
+    
+    // 🚨 THE FIX: Robust Check for incomplete selections before adding to cart
+    const hasSpecs = Array.isArray(selectedItem.attributes?.specs) && selectedItem.attributes!.specs.length > 0;
+    if (hasSpecs && !activeVariant) {
       toast.error("Please select all options (Color, Size, etc.)")
       return
     }
+
     if (isOutOfStock) {
       toast.error("Sorry, this item is out of stock")
       return
     }
+
     const cartItemId = activeVariant ? `${selectedItem.id}-${activeVariant.title}` : `${selectedItem.id}-base`
     setCart(prev => {
       const exists = prev.find(i => i.id === cartItemId)
@@ -172,6 +189,7 @@ export default function CompleteShopPage() {
       }
       return [...prev, { id: cartItemId, item: selectedItem, variant: activeVariant || undefined, qty: 1 }]
     })
+    
     toast.success("Added to bag")
     setSelectedItem(null)
     setSelections({})
@@ -250,6 +268,9 @@ export default function CompleteShopPage() {
     )
   }
 
+  // Helper variable for the product card base stock check
+  const hasItemSpecs = (item: Item) => Array.isArray(item.attributes?.specs) && item.attributes!.specs.length > 0;
+
   return (
     <div className="min-h-screen bg-background pb-32 font-sans selection:bg-primary/20 animate-in fade-in duration-500">
       <PublicHeader shop={shop} storeLink={`/shop/${shop.slug || shop.id}`} />
@@ -325,17 +346,15 @@ export default function CompleteShopPage() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {filteredItems.map(item => {
-              const isBaseOOS = !item.attributes?.has_complex_variants && (item.stock_quantity || 0) <= 0;
+              const isBaseOOS = !hasItemSpecs(item) && (item.stock_quantity || 0) <= 0;
               return (
                 <div key={item.id} onClick={() => { setSelectedItem(item); setSelections({}); }} className="group bg-card rounded-[2rem] p-3 pb-5 flex flex-col gap-3 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer relative border border-border hover:border-primary/20">
                   <div className="aspect-[3/4] w-full overflow-hidden rounded-2xl bg-secondbg relative flex items-center justify-center">
-                      {/* 🚀 THE FIX: Fault-Tolerant Image Tag */}
                       {item.image_url ? (
                         <img 
                           src={item.image_url} 
                           className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${isBaseOOS ? 'grayscale opacity-50' : ''}`} 
                           onError={(e) => {
-                             // If the database has a broken link, hide the image and show the fallback instantly
                              e.currentTarget.style.display = 'none';
                              if(e.currentTarget.nextElementSibling) {
                                (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex';
@@ -343,8 +362,6 @@ export default function CompleteShopPage() {
                           }}
                         />
                       ) : null}
-                      
-                      {/* Fallback that shows if URL is null OR if the onError triggers */}
                       <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-secondbg text-muted-foreground/30 font-bold" style={{ display: item.image_url ? 'none' : 'flex' }}>
                         No Image
                       </div>
@@ -352,7 +369,9 @@ export default function CompleteShopPage() {
                       <button onClick={(e) => toggleWishlist(e, item.id)} className="absolute top-2 right-2 p-2 bg-card/80 backdrop-blur-sm rounded-full text-destructive hover:bg-card hover:scale-110 transition-all z-10 shadow-sm">
                         <Heart size={16} fill={wishlist.includes(item.id) ? "currentColor" : "none"} />
                       </button>
-                      {item.attributes?.has_complex_variants && <span className="absolute bottom-2 left-2 bg-foreground/80 backdrop-blur-md text-background text-[9px] font-black px-2 py-1 rounded-lg uppercase">Options</span>}
+                      
+                      {/* 🚨 THE FIX: Safe Label Rendering */}
+                      {hasItemSpecs(item) && <span className="absolute bottom-2 left-2 bg-foreground/80 backdrop-blur-md text-background text-[9px] font-black px-2 py-1 rounded-lg uppercase">Options</span>}
                       {isBaseOOS && <div className="absolute inset-0 bg-background/60 flex items-center justify-center text-foreground font-black text-lg uppercase tracking-widest backdrop-blur-[2px]">Sold Out</div>}
                   </div>
                   <div className="px-1 space-y-1">
@@ -428,18 +447,50 @@ export default function CompleteShopPage() {
                    No Image
                </div>
                
-               {isOutOfStock && <div className="absolute inset-0 flex items-center justify-center"><span className="bg-foreground text-background px-6 py-2 rounded-full font-black uppercase z-20">Out of Stock</span></div>}
+               {isOutOfStock && <div className="absolute inset-0 flex items-center justify-center"><span className="bg-foreground text-background px-6 py-2 rounded-full font-black uppercase z-20 shadow-xl">Out of Stock</span></div>}
             </div>
-            <div className="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar">
+            
+            <div className="flex-1 overflow-y-auto pr-2 space-y-6 custom-scrollbar pb-4">
               <div>
                 <div className="flex justify-between items-start">
                   <h2 className="text-2xl font-black tracking-tight text-foreground leading-tight w-3/4">{selectedItem.name}</h2>
                   <div className="text-right">
-                    <p className="text-3xl font-black text-primary">₹{currentPrice}</p>
-                    {currentStock > 0 && currentStock < 5 && <p className="text-[10px] text-destructive font-bold animate-pulse">Only {currentStock} left!</p>}
+                    <p className="text-3xl font-black text-primary transition-all">₹{currentPrice}</p>
+                    {currentStock > 0 && currentStock < 5 && <p className="text-[10px] text-destructive font-bold animate-pulse mt-1">Only {currentStock} left!</p>}
                   </div>
                 </div>
               </div>
+
+              {/* 🚨 THE FIX: Bulletproof Variant Rendering Block */}
+              {Array.isArray(selectedItem.attributes?.specs) && selectedItem.attributes!.specs.length > 0 && (
+                <div className="space-y-5">
+                  {selectedItem.attributes!.specs.map((spec) => (
+                    <div key={spec.name} className="space-y-3">
+                      <p className="text-xs font-black uppercase text-muted-foreground tracking-widest">{spec.name}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {Array.isArray(spec.options) && spec.options.map(opt => {
+                          const isSelected = selections[spec.name] === opt;
+                          return (
+                            <button 
+                              key={opt} 
+                              onClick={() => setSelections(prev => ({ ...prev, [spec.name]: opt }))} 
+                              // Upgraded the UI so the active state physically presses in and glows
+                              className={`px-5 py-2.5 rounded-2xl text-sm font-bold border-2 transition-all duration-200 ${
+                                isSelected 
+                                ? 'border-primary bg-primary text-primary-foreground shadow-md scale-[1.02]' 
+                                : 'border-border bg-card text-foreground hover:border-primary/50 hover:bg-secondbg'
+                              }`}
+                            >
+                              {opt}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="bg-secondbg p-5 rounded-3xl space-y-2 border border-border">
                 <p className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1">
                    <AlignLeft size={10} /> Description
@@ -448,23 +499,9 @@ export default function CompleteShopPage() {
                   {selectedItem.description || "No description provided."}
                 </p>
               </div>
-              {selectedItem.attributes?.has_complex_variants && selectedItem.attributes.specs.map((spec) => (
-                <div key={spec.name} className="space-y-3">
-                  <p className="text-xs font-black uppercase text-muted-foreground tracking-widest">{spec.name}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {spec.options.map(opt => {
-                      const isSelected = selections[spec.name] === opt
-                      return (
-                        <button key={opt} onClick={() => setSelections(prev => ({ ...prev, [spec.name]: opt }))} className={`px-6 py-3 rounded-2xl text-sm font-bold border-2 transition-all ${isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground hover:border-primary/50'}`}>
-                          {opt}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
             </div>
-            <div className="pt-6 mt-4 border-t border-border">
+            
+            <div className="pt-4 mt-2 border-t border-border flex-shrink-0">
                <button onClick={addToCart} disabled={isOutOfStock} className="w-full py-5 bg-primary disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed text-primary-foreground rounded-[2rem] font-black text-lg shadow-xl shadow-primary/20 active:scale-95 transition-transform flex items-center justify-center gap-2 hover:opacity-90">
                  {isOutOfStock ? "SOLD OUT" : <><ShoppingBag size={20} /> ADD TO BAG</>}
                </button>
@@ -508,7 +545,7 @@ export default function CompleteShopPage() {
                  const stockLimit = c.variant ? c.variant.stock : c.item.stock_quantity;
                  return (
                   <div key={c.id} className="flex gap-4 items-start py-2 border-b border-border last:border-0 pb-4">
-                    <div className="w-20 h-20 rounded-2xl bg-secondbg overflow-hidden flex-shrink-0 border border-border flex items-center justify-center">
+                    <div className="w-20 h-20 rounded-2xl bg-secondbg overflow-hidden flex-shrink-0 border border-border flex items-center justify-center relative">
                       {c.variant?.image || c.item.image_url ? (
                         <img 
                           src={c.variant?.image || c.item.image_url} 
@@ -516,7 +553,7 @@ export default function CompleteShopPage() {
                           onError={(e) => { e.currentTarget.style.display = 'none'; if(e.currentTarget.nextElementSibling) (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'flex'; }}
                         />
                       ) : null}
-                      <div className="absolute w-full h-full bg-secondbg flex items-center justify-center text-xs font-bold text-muted-foreground" style={{ display: (c.variant?.image || c.item.image_url) ? 'none' : 'flex' }}>IMG</div>
+                      <div className="absolute inset-0 bg-secondbg flex items-center justify-center text-[10px] font-bold text-muted-foreground" style={{ display: (c.variant?.image || c.item.image_url) ? 'none' : 'flex' }}>IMG</div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-foreground text-sm truncate">{c.item.name}</p>
@@ -533,7 +570,7 @@ export default function CompleteShopPage() {
               )})}
             </div>
             {cart.length > 0 && (
-              <div className="bg-secondbg p-6 space-y-4 border-t border-border">
+              <div className="bg-secondbg p-6 space-y-4 border-t border-border flex-shrink-0">
                 {!appliedCoupon ? (
                   <div className="flex gap-2">
                     <div className="relative flex-1">
