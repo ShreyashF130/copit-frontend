@@ -3,9 +3,25 @@
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useState, useEffect, Suspense } from 'react'
 import { Loader2, AlertTriangle, ShieldCheck } from 'lucide-react'
-import Script from 'next/script'
 import { toast } from 'sonner'
 import axios from 'axios'
+
+// 🚨 THE GUARDRAIL: Forces the browser to download the SDK before continuing
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    // If it's already loaded, don't load it again
+    if ((window as any).Razorpay) {
+      resolve(true)
+      return
+    }
+    
+    const script = document.createElement("script")
+    script.src = "https://checkout.razorpay.com/v1/checkout.js"
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
 
 function OnlinePaymentContent() {
   const searchParams = useSearchParams()
@@ -26,7 +42,6 @@ function OnlinePaymentContent() {
     const initPayment = async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
-        // Call our new backend endpoint
         const res = await axios.post(`${apiUrl}/api/payment/customer/create`, { order_id: orderId })
         setOrderData(res.data)
       } catch (err: any) {
@@ -39,24 +54,32 @@ function OnlinePaymentContent() {
     initPayment()
   }, [orderId])
 
-  const openRazorpay = () => {
+  // 🚨 CHANGED TO ASYNC FUNCTION
+  const openRazorpay = async () => {
     if (!orderData) return
 
+    // 1. Wait for the script to load BEFORE opening the modal
+    const isScriptLoaded = await loadRazorpayScript()
+
+    if (!isScriptLoaded) {
+      toast.error("Payment Gateway failed to load. Are you offline?")
+      return
+    }
+
+    // 2. Now it is 100% safe to use window.Razorpay
     const options = {
-      key: orderData.key_id, // The SHOP'S public key
+      key: orderData.key_id, 
       amount: orderData.amount,
       currency: "INR",
       name: "Secure Checkout",
       description: `Order #${orderId}`,
-      order_id: orderData.order_id, // Razorpay Order ID
+      order_id: orderData.order_id, 
       handler: function (response: any) {
-        // Payment successful on frontend. 
-        // The backend Webhook is processing it simultaneously.
         toast.success("Payment Successful! Return to WhatsApp.")
         router.push(`/pay/success?order=${orderId}`)
       },
       prefill: {
-        contact: "", // You can pass customer phone here if you fetch it
+        contact: "", 
       },
       theme: { color: "#2563EB" },
       modal: {
@@ -70,7 +93,6 @@ function OnlinePaymentContent() {
     rzp.open()
   }
 
-  // Auto-open Razorpay once data loads
   useEffect(() => {
     if (orderData) {
       openRazorpay()
@@ -87,7 +109,7 @@ function OnlinePaymentContent() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-6 text-center">
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
+      {/* 🚨 REMOVED NEXT.JS SCRIPT TAG FROM HERE */}
       
       <div className="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mb-6 border border-blue-500/30">
         <ShieldCheck className="text-blue-500" size={32} />
