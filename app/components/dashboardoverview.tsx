@@ -11,29 +11,40 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer 
 } from 'recharts' 
 
-export default function DashboardOverview() {
+// 🚨 THE FIX 1: Explicitly tell TypeScript what props this component accepts
+interface DashboardOverviewProps {
+  shopId: number;
+}
+
+export default function DashboardOverview({ shopId }: DashboardOverviewProps) {
   const [loading, setLoading] = useState(true)
   const [shop, setShop] = useState<any>(null)
   const [analytics, setAnalytics] = useState<any>(null)
   
   const supabase = createClient()
-const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+
   useEffect(() => {
     initDashboard()
-  }, [])
+  }, [shopId]) // Re-run if shopId changes
 
   async function initDashboard() {
     try {
-      // 1. Get User & Shop ID first
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-
-      const { data: shopData } = await supabase.from('shops').select('*').eq('owner_id', user.id).single()
-      if (!shopData) return
+      // 1. Fetch the Shop state (for the pause/active toggle)
+      const { data: shopData, error: shopError } = await supabase
+        .from('shops')
+        .select('*')
+        .eq('id', shopId)
+        .single()
+        
+      if (shopError || !shopData) {
+        toast.error("Could not load shop settings.")
+        return
+      }
       setShop(shopData)
 
-      // 2. Fetch Analytics from PYTHON BACKEND
-      const res = await fetch(`${apiUrl}/api/analytics/${shopData.id}`)
+      // 2. Fetch Analytics from PYTHON BACKEND using the exact shopId passed from the server
+      const res = await fetch(`${apiUrl}/api/analytics/${shopId}`)
       const data = await res.json()
       
       if (data.status === 'success') {
@@ -56,7 +67,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL;
     // Optimistic UI Update
     setShop({ ...shop, is_paused: newStatus })
     
-    const { error } = await supabase.from('shops').update({ is_paused: newStatus }).eq('id', shop.id)
+    const { error } = await supabase.from('shops').update({ is_paused: newStatus }).eq('id', shopId)
     if (error) {
       toast.error("Failed to update status")
       setShop({ ...shop, is_paused: !newStatus }) // Revert
@@ -71,7 +82,6 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL;
     </div>
   )
 
-  // Use data from API or fallback to zeros
   const stats = analytics?.stats || { total_revenue: 0, total_orders: 0, pending_orders: 0 }
   const graphData = analytics?.graph || []
   const topItems = analytics?.top_items || []
@@ -101,7 +111,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
       {/* --- KEY METRICS --- */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* REVENUE - Always Dark for Contrast */}
+        {/* REVENUE */}
         <div className="bg-slate-900 dark:bg-black text-white p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden group border border-slate-800">
           <div className="relative z-10">
             <div className="flex items-center gap-2 text-slate-400 mb-2">
@@ -145,37 +155,39 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
         {/* --- REVENUE GRAPH --- */}
-        <div className="lg:col-span-2 bg-card border border-border rounded-[2.5rem] p-8 shadow-sm h-[400px]">
+        <div className="lg:col-span-2 bg-card border border-border rounded-[2.5rem] p-8 shadow-sm h-[400px] flex flex-col">
           <div className="flex items-center justify-between mb-8">
             <h3 className="font-black text-lg text-foreground flex items-center gap-2">
               <BarChart3 className="text-primary" /> Performance
             </h3>
             <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Last 7 Days</span>
           </div>
-         <div style={{ width: '100%', height: 300 }}>
-          <ResponsiveContainer width="100%" height="80%">
-            <AreaChart data={graphData}>
-              <defs>
-                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2}/>
-                  <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: 'var(--muted-foreground)'}} />
-              <Tooltip 
-                contentStyle={{borderRadius: '16px', border: '1px solid var(--border)', backgroundColor: 'var(--card)', color: 'var(--foreground)'}}
-                itemStyle={{color: 'var(--primary)', fontWeight: 900}}
-              />
-              <Area type="monotone" dataKey="total" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
-            </AreaChart>
-          </ResponsiveContainer>
+          
+          {/* 🚨 THE FIX 2: Explicitly size the parent container using Tailwind, and force Recharts to 100% */}
+          <div className="w-full flex-1 min-h-[250px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={graphData}>
+                <defs>
+                  <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.2}/>
+                    <stop offset="95%" stopColor="var(--primary)" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fontSize: 10, fill: 'var(--muted-foreground)'}} />
+                <Tooltip 
+                  contentStyle={{borderRadius: '16px', border: '1px solid var(--border)', backgroundColor: 'var(--card)', color: 'var(--foreground)'}}
+                  itemStyle={{color: 'var(--primary)', fontWeight: 900}}
+                />
+                <Area type="monotone" dataKey="total" stroke="var(--primary)" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
         {/* --- QUICK ACTIONS & HEALTH --- */}
         <div className="space-y-6">
           
-          {/* BOT STATUS CARD - Gradient remains to standout */}
+          {/* BOT STATUS CARD */}
           <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden group">
             <Smartphone className="absolute -bottom-4 -right-4 w-32 h-32 opacity-10 group-hover:scale-110 transition-transform rotate-12" />
             <h4 className="font-black text-xl mb-2">Bot Health: 98%</h4>
@@ -198,7 +210,7 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL;
               {topItems.map((item: any, i: number) => (
                 <div key={i} className="flex items-center justify-between pb-2 border-b border-border last:border-0">
                   <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-full bg-secondbg text-muted-foreground flex items-center justify-center text-[10px] font-black">{i+1}</span>
+                    <span className="w-6 h-6 rounded-full bg-secondary text-muted-foreground flex items-center justify-center text-[10px] font-black">{i+1}</span>
                     <span className="text-sm font-bold text-foreground/80">{item.item_name}</span>
                   </div>
                   <span className="text-xs font-black text-primary">{item.qty_sold} sold</span>

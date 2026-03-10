@@ -6,10 +6,9 @@ import { Loader2, AlertTriangle, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import axios from 'axios'
 
-// 🚨 THE GUARDRAIL: Forces the browser to download the SDK before continuing
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
-    // If it's already loaded, don't load it again
+
     if ((window as any).Razorpay) {
       resolve(true)
       return
@@ -54,11 +53,9 @@ function OnlinePaymentContent() {
     initPayment()
   }, [orderId])
 
-  // 🚨 CHANGED TO ASYNC FUNCTION
   const openRazorpay = async () => {
     if (!orderData) return
 
-    // 1. Wait for the script to load BEFORE opening the modal
     const isScriptLoaded = await loadRazorpayScript()
 
     if (!isScriptLoaded) {
@@ -66,7 +63,6 @@ function OnlinePaymentContent() {
       return
     }
 
-    // 2. Now it is 100% safe to use window.Razorpay
     const options = {
       key: orderData.key_id, 
       amount: orderData.amount,
