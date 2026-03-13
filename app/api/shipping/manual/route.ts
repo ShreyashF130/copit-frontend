@@ -9,7 +9,7 @@ export async function POST(req: Request) {
 
     if (!API_KEY || !API_URL) throw new Error("Server Config Error")
 
-    const res = await fetch(`${API_URL}/dashboard/ship-manual`, {
+    const res = await fetch(`${API_URL}/api/dashboard/ship-manual`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

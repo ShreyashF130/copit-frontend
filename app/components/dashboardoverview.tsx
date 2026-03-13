@@ -11,7 +11,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer 
 } from 'recharts' 
 
-// 🚨 THE FIX 1: Explicitly tell TypeScript what props this component accepts
+
 interface DashboardOverviewProps {
   shopId: number;
 }
@@ -26,11 +26,11 @@ export default function DashboardOverview({ shopId }: DashboardOverviewProps) {
 
   useEffect(() => {
     initDashboard()
-  }, [shopId]) // Re-run if shopId changes
+  }, [shopId]) 
 
   async function initDashboard() {
     try {
-      // 1. Fetch the Shop state (for the pause/active toggle)
+     
       const { data: shopData, error: shopError } = await supabase
         .from('shops')
         .select('*')
@@ -43,7 +43,6 @@ export default function DashboardOverview({ shopId }: DashboardOverviewProps) {
       }
       setShop(shopData)
 
-      // 2. Fetch Analytics from PYTHON BACKEND using the exact shopId passed from the server
       const res = await fetch(`${apiUrl}/api/analytics/${shopId}`)
       const data = await res.json()
       
@@ -85,7 +84,8 @@ export default function DashboardOverview({ shopId }: DashboardOverviewProps) {
   const stats = analytics?.stats || { total_revenue: 0, total_orders: 0, pending_orders: 0 }
   const graphData = analytics?.graph || []
   const topItems = analytics?.top_items || []
-
+  
+  console.log("🚨 GRAPH DATA:", graphData);
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
       
