@@ -5,14 +5,13 @@ import { createClient } from '@/app/lib/supabase-browser'
 import { 
   Search, Share2, Trash2, Loader2, Plus, X, Edit3, AlertTriangle,
   Package, ImageIcon, Instagram, Youtube, Facebook, 
-  Link as LinkIcon, Copy, Save, FileSpreadsheet
+  Link as LinkIcon, Copy, Save, FileSpreadsheet, Upload
 } from 'lucide-react'
 import { toast } from 'sonner'
 import BulkUploadModal from './bulkupload' 
 
 // --- SMART LINK GENERATOR ---
 const SmartLinkGenerator = ({ shopSlug, productSlug }: { shopSlug: string, productSlug: string | number }) => {
-  // 🚨 THE FIX: Build the exact slug-based path
   const baseUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}/shop/${shopSlug}/products/${productSlug}` 
     : `https://copit.in/shop/${shopSlug}/products/${productSlug}`;
@@ -47,8 +46,6 @@ const SmartLinkGenerator = ({ shopSlug, productSlug }: { shopSlug: string, produ
 
 export default function ItemsManager({ shopId }: { shopId: number }) {
   const [items, setItems] = useState<any[]>([])
-  
-  // 🚨 THE FIX: State to hold the shop slug once we fetch it
   const [shopSlug, setShopSlug] = useState<string>('') 
   
   const [loading, setLoading] = useState(true)
@@ -63,21 +60,26 @@ export default function ItemsManager({ shopId }: { shopId: number }) {
   const [specs, setSpecs] = useState<{name: string, options: string[]}[]>([])
   const [variants, setVariants] = useState<any[]>([])
 
+  // MAIN IMAGE STATES
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+
+  // 🚨 NEW: VARIANT IMAGE STATES
+  const [variantFiles, setVariantFiles] = useState<{[key: number]: File}>({})
+  const [variantPreviews, setVariantPreviews] = useState<{[key: number]: string}>({})
+
   const supabase = createClient()
 
   useEffect(() => { 
     if (shopId) {
       fetchItems()
-      fetchShopSlug() // 👈 Fetch the slug when the component mounts
+      fetchShopSlug()
     } 
   }, [shopId])
 
-  // 🚨 THE FIX: Pull the shop slug directly from the DB so the link generator can use it
   async function fetchShopSlug() {
     const { data, error } = await supabase.from('shops').select('slug').eq('id', shopId).single()
-    if (data && !error) {
-      setShopSlug(data.slug)
-    }
+    if (data && !error) setShopSlug(data.slug)
   }
 
   async function fetchItems() {
@@ -91,68 +93,139 @@ export default function ItemsManager({ shopId }: { shopId: number }) {
     setEditingItem(item)
     setSpecs(item.attributes?.specs || [])
     setVariants(item.attributes?.variants || [])
+    setImagePreview(item.image_url || null)
+    setImageFile(null)
+    
+    // 🚨 Clear variant ghosts
+    setVariantFiles({})
+    setVariantPreviews({})
     setIsEditing(true)
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) return toast.error("Image must be less than 2MB")
+      setImageFile(file)
+      setImagePreview(URL.createObjectURL(file))
+    }
+  }
+
+  // 🚨 NEW: Handle individual variant image selection
+  const handleVariantImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) return toast.error("Image must be less than 2MB")
+      setVariantFiles(prev => ({ ...prev, [index]: file }))
+      setVariantPreviews(prev => ({ ...prev, [index]: URL.createObjectURL(file) }))
+    }
+  }
+
+  const uploadImage = async (file: File, prefix = 'main'): Promise<string | null> => {
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${prefix}-${shopId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
+    const { error } = await supabase.storage.from('product-images').upload(fileName, file)
+    if (error) throw error
+    const { data: { publicUrl } } = supabase.storage.from('product-images').getPublicUrl(fileName)
+    return publicUrl
+  }
+
+  // 🚨 NEW: Parallel upload for all selected variant images
+  const processVariantsBeforeSave = async () => {
+    return await Promise.all(variants.map(async (v, i) => {
+      if (variantFiles[i]) {
+        try {
+          const publicUrl = await uploadImage(variantFiles[i], 'var');
+          return { ...v, image: publicUrl };
+        } catch (e) {
+          toast.error(`Failed to upload image for variant: ${v.title}`);
+          return v;
+        }
+      }
+      return v;
+    }));
   }
 
   async function handleUpdateProduct(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); 
     setLoading(true);
     const formData = new FormData(e.currentTarget);
+    const productName = formData.get('name')?.toString() || '';
     
-    const variantStock = variants.reduce((acc, v) => acc + (Number(v.stock) || 0), 0);
-    const baseStock = Number(formData.get('stock')) || 0;
-    const finalStock = variants.length > 0 ? variantStock : baseStock;
+    try {
+      let finalImageUrl = editingItem.image_url;
+      if (imageFile) finalImageUrl = await uploadImage(imageFile);
 
-    const updatedData = {
-      name: formData.get('name'),
-      price: Number(formData.get('price')) || 0,
-      category: formData.get('category'),
-      description: formData.get('description'),
-      attributes: { specs, variants, has_complex_variants: variants.length > 0 },
-      stock_count: finalStock
-    };
+      // 🚨 Process variant images
+      const finalVariants = await processVariantsBeforeSave();
 
-    const { error } = await supabase.from('items').update(updatedData).eq('id', editingItem.id);
-    
-    if (error) { 
-      toast.error(`Error: ${error.message}`); 
-      console.error(error); 
-    } else { 
+      const variantStock = finalVariants.reduce((acc, v) => acc + (Number(v.stock) || 0), 0);
+      const baseStock = Number(formData.get('stock')) || 0;
+      const finalStock = finalVariants.length > 0 ? variantStock : baseStock;
+
+      const updatedData = {
+        name: productName,
+        slug: productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+        image_url: finalImageUrl,
+        price: Number(formData.get('price')) || 0,
+        category: formData.get('category'),
+        description: formData.get('description'),
+        attributes: { specs, variants: finalVariants, has_complex_variants: finalVariants.length > 0 },
+        stock_count: finalStock
+      };
+
+      const { error } = await supabase.from('items').update(updatedData).eq('id', editingItem.id);
+      if (error) throw error;
+      
       toast.success('Updated! ⚡'); 
       setIsEditing(false); 
       fetchItems(); 
+    } catch (error: any) {
+      toast.error(`Error: ${error.message}`); 
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleAddItem(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault(); 
     setLoading(true);
     const formData = new FormData(e.currentTarget);
-    
-    const variantStock = variants.reduce((acc, v) => acc + (Number(v.stock) || 0), 0);
-    const baseStock = Number(formData.get('stock')) || 0;
-    
-    const productData = {
-      shop_id: shopId, 
-      name: formData.get('name'), 
-      price: Number(formData.get('price')) || 0,
-      category: formData.get('category'), 
-      description: formData.get('description'),
-      attributes: { specs, variants, has_complex_variants: variants.length > 0 },
-      stock_count: variants.length > 0 ? variantStock : baseStock
-    };
+    const productName = formData.get('name')?.toString() || '';
 
-    const { error } = await supabase.from('items').insert([productData]);
-    
-    if (error) { 
-      toast.error(`Error: ${error.message}`); 
-    } else { 
+    try {
+      let finalImageUrl = null;
+      if (imageFile) finalImageUrl = await uploadImage(imageFile);
+      
+      // 🚨 Process variant images
+      const finalVariants = await processVariantsBeforeSave();
+
+      const variantStock = finalVariants.reduce((acc, v) => acc + (Number(v.stock) || 0), 0);
+      const baseStock = Number(formData.get('stock')) || 0;
+      
+      const productData = {
+        shop_id: shopId, 
+        name: productName, 
+        slug: productName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+        image_url: finalImageUrl, 
+        price: Number(formData.get('price')) || 0,
+        category: formData.get('category'), 
+        description: formData.get('description'),
+        attributes: { specs, variants: finalVariants, has_complex_variants: finalVariants.length > 0 },
+        stock_count: finalVariants.length > 0 ? variantStock : baseStock
+      };
+
+      const { error } = await supabase.from('items').insert([productData]);
+      if (error) throw error;
+      
       setIsAdding(false); 
       fetchItems(); 
       toast.success('Launched!'); 
+    } catch (error: any) {
+      toast.error(`Error: ${error.message}`); 
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function handleDeleteItem(itemId: number) {
@@ -171,6 +244,9 @@ export default function ItemsManager({ shopId }: { shopId: number }) {
       })
     }
     setVariants(result)
+    // 🚨 Clear variant image ghosts when regenerating
+    setVariantFiles({})
+    setVariantPreviews({})
   }
 
   const filteredItems = items.filter(i => i.name?.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -178,7 +254,6 @@ export default function ItemsManager({ shopId }: { shopId: number }) {
   return (
     <div className="space-y-8 max-w-7xl mx-auto font-sans">
       
-      {/* SEARCH & ACTIONS */}
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-card p-4 rounded-[2rem] border border-border">
         <div className="relative w-full md:max-w-md">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
@@ -186,11 +261,14 @@ export default function ItemsManager({ shopId }: { shopId: number }) {
         </div>
         <div className="flex gap-3">
           <button onClick={() => setIsBulkUploading(true)} className="bg-secondbg px-6 py-3 rounded-xl font-bold flex items-center gap-2"><FileSpreadsheet size={20} /> Bulk</button>
-          
           <button onClick={() => { 
             setEditingItem(null); 
             setSpecs([]); 
             setVariants([]); 
+            setImagePreview(null); 
+            setImageFile(null);
+            setVariantFiles({});
+            setVariantPreviews({});
             setIsAdding(true); 
           }} className="bg-primary text-primary-foreground px-8 py-3 rounded-xl font-black flex items-center gap-2">
             <Plus size={20} /> ADD
@@ -198,7 +276,6 @@ export default function ItemsManager({ shopId }: { shopId: number }) {
         </div>
       </div>
 
-      {/* ITEMS LIST */}
       <div className="grid grid-cols-1 gap-4">
         {filteredItems.map((item) => {
           const stockCount = item.stock_count || 0;
@@ -234,18 +311,36 @@ export default function ItemsManager({ shopId }: { shopId: number }) {
         })}
       </div>
 
-      {/* --- ADD / EDIT MODAL --- */}
       {(isAdding || isEditing) && (
         <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
            <div className="bg-card w-full max-w-5xl rounded-[2.5rem] p-8 md:p-12 shadow-2xl relative overflow-y-auto max-h-[90vh] border border-border">
             <button onClick={() => { setIsAdding(false); setIsEditing(false); }} className="absolute right-8 top-8 p-2 bg-secondbg rounded-full"><X size={24} /></button>
             <h2 className="text-3xl font-black mb-8 uppercase italic flex items-center gap-2">
                {isEditing ? <Edit3 className="text-blue-500" /> : <Package className="text-primary" />}
-               {isEditing ? `Edit: ${editingItem?.name}` : 'New Collection'}
+               {isEditing ? `Edit: ${editingItem?.name}` : 'New Product'}
             </h2>
             
             <form key={isEditing ? `edit-${editingItem?.id}` : 'add-new'} onSubmit={isEditing ? handleUpdateProduct : handleAddItem} className="grid grid-cols-1 lg:grid-cols-2 gap-10">
               <div className="space-y-6">
+                
+                <div className="flex items-center gap-6 p-5 bg-secondbg rounded-2xl border border-dashed border-border">
+                    <div className="w-24 h-24 rounded-2xl bg-card border-2 border-border flex items-center justify-center overflow-hidden shrink-0 relative group cursor-pointer">
+                        {imagePreview ? (
+                            <img src={imagePreview} alt="Product Preview" className="w-full h-full object-cover" />
+                        ) : (
+                            <ImageIcon size={32} className="text-muted-foreground/50" />
+                        )}
+                        <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center transition-all">
+                            <Upload size={24} className="text-white" />
+                        </div>
+                        <input type="file" accept="image/*" onChange={handleImageChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-bold text-foreground">Main Product Image</h3>
+                        <p className="text-xs text-muted-foreground mt-1">Make it square. High-quality images increase conversion rates.</p>
+                    </div>
+                </div>
+
                 <div className="space-y-2">
                   <label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Product Name</label>
                   <input name="name" defaultValue={editingItem?.name} required className="w-full p-4 rounded-2xl bg-secondbg font-bold outline-none" />
@@ -271,13 +366,12 @@ export default function ItemsManager({ shopId }: { shopId: number }) {
                   )}
                 </div>
 
-                {/* --- SPECS --- */}
                 <div className="p-6 bg-primary/5 rounded-[2rem] space-y-4 border border-primary/10">
                    <p className="text-[10px] font-black uppercase tracking-widest text-primary">Custom Specs</p>
                    {specs.map((s, i) => (
                      <div key={i} className="flex gap-2 bg-card p-3 rounded-xl shadow-sm border border-border">
                        <input placeholder="Size" value={s.name} onChange={(e) => { const n = [...specs]; n[i].name = e.target.value; setSpecs(n); }} className="w-1/3 p-2 bg-secondbg rounded-lg text-xs outline-none" />
-                       <input placeholder="S, M, L" value={s.options.join(',')} onChange={(e) => { const n = [...specs]; n[i].options = e.target.value.split(','); setSpecs(n); }} className="flex-1 p-2 bg-secondbg rounded-lg text-xs outline-none" />
+                       <input placeholder="S, M, L (comma separated)" value={s.options.join(',')} onChange={(e) => { const n = [...specs]; n[i].options = e.target.value.split(','); setSpecs(n); }} className="flex-1 p-2 bg-secondbg rounded-lg text-xs outline-none" />
                        <button type="button" onClick={() => setSpecs(specs.filter((_, idx) => idx !== i))}><Trash2 size={16} className="text-destructive"/></button>
                      </div>
                    ))}
@@ -288,14 +382,29 @@ export default function ItemsManager({ shopId }: { shopId: number }) {
                 </div>
               </div>
 
-              {/* --- VARIANTS LIST --- */}
               <div className="space-y-4 max-h-[500px] overflow-y-auto bg-secondbg p-6 rounded-[2.5rem] border border-border">
                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Variant Inventory</p>
                 {variants.length > 0 ? variants.map((v, i) => {
                    const variantLowStock = v.stock > 0 && v.stock < 5;
+                   
+                   // 🚨 UI FIX: Variant Image Uploader Box
+                   const currentPreview = variantPreviews[i] || v.image;
+
                    return (
                     <div key={i} className={`flex gap-3 bg-card p-4 rounded-2xl border items-center shadow-sm ${variantLowStock ? 'border-rose-500' : 'border-border'}`}>
-                      <div className="w-10 h-10 bg-secondbg rounded-lg overflow-hidden shrink-0 border border-border">{v.image ? <img src={v.image} className="object-cover w-full h-full" /> : <ImageIcon size={14} className="text-muted-foreground/50 m-auto mt-3"/>}</div>
+                      
+                      <div className="w-12 h-12 bg-secondbg rounded-xl overflow-hidden shrink-0 border border-border relative group cursor-pointer">
+                        {currentPreview ? (
+                            <img src={currentPreview} className="object-cover w-full h-full" />
+                        ) : (
+                            <ImageIcon size={16} className="text-muted-foreground/50 m-auto mt-4"/>
+                        )}
+                        <div className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center transition-all">
+                            <Upload size={14} className="text-white" />
+                        </div>
+                        <input type="file" accept="image/*" onChange={(e) => handleVariantImageChange(i, e)} className="absolute inset-0 opacity-0 cursor-pointer" />
+                      </div>
+
                       <div className="flex-1 text-xs font-black truncate">
                         {v.title}
                         {variantLowStock && <AlertTriangle size={10} className="text-rose-500 inline ml-1" />}
@@ -315,20 +424,16 @@ export default function ItemsManager({ shopId }: { shopId: number }) {
         </div>
       )}
 
-      {/* --- SHARE MODAL --- */}
       {selectedItem && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
           <div className="bg-card w-full max-w-md rounded-[2.5rem] p-8 text-center relative border border-border shadow-2xl">
              <button onClick={() => setSelectedItem(null)} className="absolute right-6 top-6 text-muted-foreground hover:text-foreground transition-colors"><X size={20}/></button>
              <div className="w-16 h-16 bg-primary/10 rounded-2xl mx-auto flex items-center justify-center text-primary mb-4"><Share2 size={32} /></div>
              <h2 className="text-xl font-black uppercase tracking-tight">Track Your Sales</h2>
-             
-             {/* 🚨 THE FIX: Pass both the fetched shopSlug and the item's slug (or ID as a fallback) */}
              <SmartLinkGenerator 
                 shopSlug={shopSlug} 
                 productSlug={selectedItem.slug || selectedItem.id} 
              />
-
           </div>
         </div>
       )}

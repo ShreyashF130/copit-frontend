@@ -1,6 +1,8 @@
 'use client'
+
 import { useState, useEffect } from 'react'
 import { createClient } from '@/app/lib/supabase-browser'
+import { useRouter } from 'next/navigation' // 🚨 ADDED: Router for cache clearing
 import { toast } from 'sonner'
 import { Save, Store, MessageSquare, ShieldAlert, ImageIcon, Loader2, Instagram } from 'lucide-react'
 
@@ -8,7 +10,9 @@ export default function GeneralSettings() {
   const [shop, setShop] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+  
   const supabase = createClient()
+  const router = useRouter() // 🚨 ADDED
 
   useEffect(() => { fetchSettings() }, [])
 
@@ -22,19 +26,30 @@ export default function GeneralSettings() {
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     if (!e.target.files || !e.target.files[0]) return
     setUploading(true)
+    
     const file = e.target.files[0]
     const fileExt = file.name.split('.').pop()
     const fileName = `logo-${Math.random()}.${fileExt}`
     const filePath = `${shop.id}/${fileName}`
 
     try {
-        const { error: uploadError } = await supabase.storage.from('product-images').upload(filePath, file)
+        // 🚨 FIX 1: Using the correct shop-logos bucket
+        const { error: uploadError } = await supabase.storage.from('shop-logos').upload(filePath, file)
         if (uploadError) throw uploadError
-        const { data } = supabase.storage.from('product-images').getPublicUrl(filePath)
         
-        // Update local state immediately for preview
-        setShop({ ...shop, logo_url: data.publicUrl })
-        toast.success("Logo uploaded! Don't forget to save.")
+        const { data } = supabase.storage.from('shop-logos').getPublicUrl(filePath)
+        const newLogoUrl = data.publicUrl
+        
+        // 🚨 FIX 2: AUTO-SAVE TO DATABASE IMMEDIATELY
+        const { error: dbError } = await supabase.from('shops').update({ logo_url: newLogoUrl }).eq('id', shop.id)
+        if (dbError) throw dbError
+
+        // Update local state for the preview
+        setShop({ ...shop, logo_url: newLogoUrl })
+        
+        toast.success("Logo updated successfully!")
+        router.refresh() // 🚨 FIX 3: Clear Next.js cache so the navbar updates instantly
+
     } catch (error) {
         toast.error("Upload failed")
     }
@@ -46,7 +61,6 @@ export default function GeneralSettings() {
     setLoading(true)
     const formData = new FormData(e.currentTarget)
     
-    // 🚨 THE FIX: IDIOT-PROOF DATA SANITIZATION
     const rawInsta = formData.get('instagram_handle')?.toString() || ''
     const cleanInsta = rawInsta.replace('@', '').replace('https://instagram.com/', '').trim()
     
@@ -54,15 +68,17 @@ export default function GeneralSettings() {
       name: formData.get('shop_name'),
       welcome_message: formData.get('welcome_msg'),
       return_policy: formData.get('return_policy'),
-      instagram_handle: cleanInsta, // Save the clean handle
-      logo_url: shop.logo_url // Save the uploaded URL
+      instagram_handle: cleanInsta,
+      // logo_url is removed from here because it now auto-saves during upload!
     }
 
     const { error } = await supabase.from('shops').update(updates).eq('id', shop.id)
-    if (error) toast.error("Failed to save")
-    else {
+    if (error) {
+        toast.error("Failed to save")
+    } else {
         toast.success("Shop settings updated!")
         fetchSettings() 
+        router.refresh() // 🚨 FIX 3: Clear Next.js cache
     }
     setLoading(false)
   }
@@ -129,7 +145,7 @@ export default function GeneralSettings() {
         </div>
       </div>
 
-      {/* 2. RETURN POLICY (THE NEW FEATURE) */}
+      {/* 2. RETURN POLICY */}
       <div className="bg-card p-8 rounded-[2.5rem] border border-border shadow-sm">
         <h3 className="font-black text-lg text-foreground mb-2 flex items-center gap-2">
             <ShieldAlert className="text-[var(--warning)]" /> Return & Refund Policy
