@@ -196,13 +196,22 @@ export default function OrdersPage() {
                     </td>
 
                     {/* 2. Order Details */}
+                   {/* 2. Order Details */}
                     <td className="px-6 py-6 align-top">
-                      <div className="space-y-1.5">
-                        <p className="font-bold text-foreground text-xs line-clamp-2 w-[200px]">{order.item_name}</p>
-                        <p className="text-[11px] text-muted-foreground font-bold flex items-center gap-1.5 pt-1">
-                          <span className="bg-secondbg p-1 rounded-md"><Phone size={10}/></span> {order.customer_phone}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground line-clamp-1 w-[200px]" title={order.delivery_address}>{order.delivery_address}</p>
+                      <div className="space-y-2 max-w-[300px]">
+                        <p className="font-bold text-foreground text-xs leading-tight">{order.item_name}</p>
+                        
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <span className="bg-primary/10 text-primary p-1.5 rounded-md"><Phone size={12}/></span> 
+                          <span className="text-[11px] font-black tracking-wide">{order.customer_phone}</span>
+                        </div>
+                        
+                        {/* 🚨 THE FIX: Removed line-clamp, added proper text wrapping and a subtle background for readability */}
+                        <div className="bg-secondbg/50 p-2.5 rounded-lg border border-border/50 mt-2">
+                           <p className="text-[10px] text-muted-foreground font-medium leading-relaxed break-words whitespace-pre-wrap">
+                             {order.delivery_address}
+                           </p>
+                        </div>
                       </div>
                     </td>
                     
