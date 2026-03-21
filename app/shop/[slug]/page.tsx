@@ -223,7 +223,7 @@ export default function CompleteShopPage() {
   const FREE_SHIPPING_THRESHOLD = 1500
   const progressToFreeShipping = Math.min(100, (finalTotal / FREE_SHIPPING_THRESHOLD) * 100)
 
-  const handleCheckout = () => {
+ const handleCheckout = () => {
     const orderLines = cart.map(c => `• ${c.item.name} ${c.variant ? `(${c.variant.title})` : ''} x${c.qty}`).join('\n')
     let bulkRef = cart.map(c => `${c.item.id}:${c.qty}`).join(',')
     if (appliedCoupon) bulkRef += `_COUPON:${appliedCoupon.code}`
@@ -234,6 +234,11 @@ export default function CompleteShopPage() {
     }
     msg += `💰 *Final Total: ₹${finalTotal}*\n\n(Ref: buy_bulk_${bulkRef})`
     
+    // 🚨 THE FIX: DESTROY THE CART STATE AND STORAGE BEFORE REDIRECTING
+    setCart([])
+    localStorage.removeItem(`copit-cart-${shop.id}`)
+    
+    // Now redirect them
     window.location.href = `https://wa.me/${process.env.NEXT_PUBLIC_BOT_PHONE}?text=${encodeURIComponent(msg)}`
   }
 
