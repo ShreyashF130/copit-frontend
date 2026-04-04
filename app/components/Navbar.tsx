@@ -5,54 +5,52 @@ import Link from 'next/link'
 import { LayoutDashboard } from 'lucide-react'
 import Logo from './logo'
 import { ThemeToggle } from './themetoggle' 
-// import { useEffect, useState, useCallback } from 'react'
+
+type Theme = 'light' | 'dark'
+
 export default function Navbar({ user }: { user: any }) {
+  const [isVisible, setIsVisible] = useState(true)
+  const [lastScrollY, setLastScrollY] = useState(0)
+  const [theme, setTheme] = useState<Theme>('light')
 
+  // 1. Define apply theme first
+  const applyTheme = useCallback((t: Theme) => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', t)
+    }
+  }, [])
 
-  type Theme = 'light' | 'dark'
-  
-
-    const applyTheme = (t: Theme) => {
-    document.documentElement.setAttribute('data-theme', t)
-  }
-
-   useEffect(() => {
+  // 2. Run initial check on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('copit-theme') as Theme | null
       const preferred = stored ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
       applyTheme(preferred)
       setTheme(preferred)
-    }, [])
-  
-  const [isVisible, setIsVisible] = useState(true)
-  const [lastScrollY, setLastScrollY] = useState(0)
-  const [theme, setTheme] = useState<Theme>('light')
- const toggleTheme = useCallback(() => {
+    }
+  }, [applyTheme])
+
+  // 3. Define toggle function
+  const toggleTheme = useCallback(() => {
     const next: Theme = theme === 'light' ? 'dark' : 'light'
     setTheme(next)
     applyTheme(next)
     localStorage.setItem('copit-theme', next)
-  }, [theme])
-
+  }, [theme, applyTheme])
 
   // 🧠 SMART SCROLL LOGIC
   useEffect(() => {
     const controlNavbar = () => {
       if (typeof window !== 'undefined') {
         const currentScrollY = window.scrollY
-
-        // IF SCROLLING DOWN (>10px) -> HIDE NAVBAR
         if (currentScrollY > lastScrollY && currentScrollY > 10) {
           setIsVisible(false)
-        } 
-        // IF SCROLLING UP -> SHOW NAVBAR
-        else {
+        } else {
           setIsVisible(true)
         }
-
         setLastScrollY(currentScrollY)
       }
     }
-
     window.addEventListener('scroll', controlNavbar)
     return () => window.removeEventListener('scroll', controlNavbar)
   }, [lastScrollY])
@@ -65,7 +63,6 @@ export default function Navbar({ user }: { user: any }) {
     >
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         
-      
         <div className="cursor-pointer">
            <Link href="/">
              <Logo/>
@@ -78,7 +75,9 @@ export default function Navbar({ user }: { user: any }) {
             <a href="/demo" className="hover:text-primary transition-colors">Demo</a>
           </div>
           
-         <div onClick={toggleTheme}><ThemeToggle/></div> 
+          <div onClick={toggleTheme} className="cursor-pointer">
+            <ThemeToggle/>
+          </div> 
 
           {/* CONDITIONAL RENDERING LOGIC */}
           {user ? (
@@ -98,7 +97,6 @@ export default function Navbar({ user }: { user: any }) {
               </Link>
             </div>
           )}
-          
         </div>
       </div>
     </nav>
