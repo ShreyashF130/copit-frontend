@@ -1,377 +1,427 @@
+'use client'
+
 import Link from 'next/link'
-import { 
-  ArrowRight, Zap, ShoppingBag, 
-  Smartphone, CreditCard, Star, CheckCircle2,
-  TrendingUp, ShieldCheck, Box, 
-  Globe, LayoutDashboard, Lock, Layers,
-  RefreshCcw, Truck, MousePointerClick, Activity,
-  MessageCircle, Sparkles, AlertCircle
-} from 'lucide-react'
-
-export const dynamic = 'force-dynamic'
-
-import { createServerClientInstance as createClientS } from '@/app/lib/supabase-server'
+import { useEffect, useState, useCallback } from 'react'
+import './landing.css' // <-- Changed to the isolated file
 import Footer from './Footer.tsx/page'
-import Navbar from './components/Navbar' 
+import Navbar from './components/Navbar'
 
-export default async function LandingPage() {
-  
-  const supabase = await createClientS()
-  const { data: { user } } = await supabase.auth.getUser()
+type Theme = 'light' | 'dark'
+
+const TICKER_ITEMS = [
+  'WhatsApp Orders Automated',
+  'Razorpay Auto-Reconciliation',
+  'Shiprocket AWB in Seconds',
+  '0% RTO with Magic Link',
+  'Instagram DM Commerce',
+  'Smart Upsell Engine',
+]
+
+const ACTIVITY_ROWS = [
+  {
+    icon: '🛍️',
+    title: 'New Order #2931',
+    pill: 'PAID',
+    pillClass: 'pill-green',
+    sub: '₹1,499 received via UPI · just now',
+  },
+  {
+    icon: '🚚',
+    title: 'Shipment Booked',
+    pill: 'AWB: 10293',
+    pillClass: 'pill-blue',
+    sub: 'Pickup scheduled for tomorrow',
+  },
+  {
+    icon: '✨',
+    title: 'Smart Upsell',
+    pill: '+ ₹499',
+    pillClass: 'pill-purple',
+    sub: 'Customer added "Matching Belt" via bot',
+  },
+]
+
+const TRUST_ITEMS = [
+  { icon: '🛡️', label: 'Razorpay Secure', bg: '#f0fdf4' },
+  { icon: '🚚', label: 'Shiprocket',       bg: '#faf5ff' },
+  { icon: '💬', label: 'WhatsApp API',     bg: '#f0fdf4' },
+]
+
+const STEPS = [
+  { icon: '⚡', title: 'Trigger', desc: 'User DMs "Buy" or clicks a product link' },
+  { icon: '🔗', title: 'Capture', desc: 'They fill their address via secure Magic Link' },
+  { icon: '✅', title: 'Verify',  desc: 'Payment auto-confirmed via Razorpay webhook' },
+  { icon: '📦', title: 'Ship',    desc: 'AWB generated & pickup booked instantly' },
+]
+
+function ArrowRight() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M5 12h14M12 5l7 7-7 7" />
+    </svg>
+  )
+}
+
+function PlayIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <polygon points="5 3 19 12 5 21 5 3" />
+    </svg>
+  )
+}
+
+function SunIcon() {
+  return (
+    <svg className="icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="5" />
+      <line x1="12" y1="1" x2="12" y2="3" />
+      <line x1="12" y1="21" x2="12" y2="23" />
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+      <line x1="1" y1="12" x2="3" y2="12" />
+      <line x1="21" y1="12" x2="23" y2="12" />
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
+  )
+}
+
+function MoonIcon() {
+  return (
+    <svg className="icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  )
+}
+
+export default function LandingPage() {
+  const [theme, setTheme] = useState<Theme>('light')
+
+  useEffect(() => {
+    const stored = localStorage.getItem('copit-theme') as Theme | null
+    const preferred = stored ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    applyTheme(preferred)
+    setTheme(preferred)
+  }, [])
+
+  const applyTheme = (t: Theme) => {
+    document.documentElement.setAttribute('data-theme', t)
+  }
+
+  const toggleTheme = useCallback(() => {
+    const next: Theme = theme === 'light' ? 'dark' : 'light'
+    setTheme(next)
+    applyTheme(next)
+    localStorage.setItem('copit-theme', next)
+  }, [theme])
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach((e) => { if (e.isIntersecting) e.target.classList.add('visible') }),
+      { threshold: 0.1 }
+    )
+    document.querySelectorAll('.reveal').forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
+  }, [])
+
+  const tickerItems = [...TICKER_ITEMS, ...TICKER_ITEMS] 
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 font-sans selection:bg-blue-100 dark:selection:bg-blue-900 overflow-x-hidden antialiased">
-      
-      <Navbar user={user} />
-
-      {/* --- HERO SECTION --- */}
-      <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-32 px-6 overflow-hidden">
-        {/* Soft Background Gradient */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120%] h-[600px] bg-gradient-to-b from-blue-50/80 to-transparent dark:from-blue-950/20 dark:to-transparent rounded-b-[50%] pointer-events-none -z-10" />
-        
-        <div className="max-w-6xl mx-auto text-center relative z-10">
-          {/* Friendly Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-sm font-medium mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 shadow-sm">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+    <main className="copit-wrapper"> 
+      <Navbar/>
+      <div className="ticker-wrap" aria-hidden>
+        <div className="ticker">
+          {tickerItems.map((item, i) => (
+            <span key={i} className="ticker-item">
+              <span className="dot-accent">●</span> {item}
             </span>
-            Now supporting WhatsApp & Instagram
+          ))}
+        </div>
+      </div>
+
+      <section className="hero">
+        <div className="hero-bg" aria-hidden />
+        <div className="hero-grid" aria-hidden />
+        <div className="hero-content">
+          <div className="badge" role="status">
+            <span className="badge-dot" aria-hidden />
+            Now supporting WhatsApp &amp; Instagram
           </div>
-
-          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-6 leading-[1.1] text-slate-900 dark:text-white animate-in fade-in slide-in-from-bottom-6 duration-1000">
-            Turn your DMs into <br className="hidden md:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">
-              Orders on Autopilot.
-            </span>
+          <h1>
+            Turn your DMs into<br />
+            <span className="gradient-text">Orders on Autopilot.</span>
           </h1>
-
-          <p className="text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed mb-10 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
-            Stop replying manually to "Price?" and "Available?". <br/>
-            CopIt handles orders, payments, and shipping automatically—so you can focus on growing your brand.
+          <p className="hero-sub">
+            Stop replying manually to &quot;Price?&quot; and &quot;Available?&quot;.<br />
+            CopIt handles orders, payments, and shipping automatically—so you focus on growing your brand.
           </p>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-in fade-in slide-in-from-bottom-10 duration-1000 delay-200">
-             {user ? (
-               <Link href="/dashboard" className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white rounded-xl font-bold text-lg shadow-xl shadow-blue-200 dark:shadow-blue-900/20 hover:translate-y-[-2px] transition-all flex items-center justify-center gap-2">
-                 <LayoutDashboard size={20} /> Go to Dashboard
-               </Link>
-             ) : (
-               <Link href="/login" className="w-full sm:w-auto px-8 py-4 bg-slate-900 dark:bg-white dark:text-black text-white rounded-xl font-bold text-lg shadow-xl hover:translate-y-[-2px] transition-all flex items-center justify-center gap-2">
-                 Get Started for Free <ArrowRight size={20} />
-               </Link>
-             )}
-             <Link href="/workflow" className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center justify-center gap-2">
-                Workflow
-             </Link>
-             
+          <div className="hero-actions">
+            <Link href="/login" className="btn-primary">
+              Get Started for Free <ArrowRight />
+            </Link>
+            <Link href="/workflow" className="btn-secondary">
+              <PlayIcon /> Watch Demo
+            </Link>
           </div>
-
-          <div className="mt-20 pt-8 border-t border-slate-200/60 dark:border-slate-800/60">
-             <p className="text-sm font-semibold text-slate-400 uppercase tracking-widest mb-6">Powering Modern Indian Brands</p>
-             <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-70 grayscale hover:grayscale-0 transition-all duration-500">
-                <div className="flex items-center gap-2 font-bold text-xl text-slate-700 dark:text-slate-300">
-                   <ShieldCheck size={24} className="text-green-500"/> Razorpay Secure
+          <div className="trust-strip">
+            <p className="trust-label">Trusted Integrations</p>
+            <div className="trust-logos">
+              {TRUST_ITEMS.map((t) => (
+                <div key={t.label} className="trust-item">
+                  <div className="trust-icon" style={{ background: t.bg }}>{t.icon}</div>
+                  {t.label}
                 </div>
-                <div className="flex items-center gap-2 font-bold text-xl text-slate-700 dark:text-slate-300">
-                   <Truck size={24} className="text-purple-500"/> Shiprocket
-                </div>
-                <div className="flex items-center gap-2 font-bold text-xl text-slate-700 dark:text-slate-300">
-                   <MessageCircle size={24} className="text-green-600"/> WhatsApp API
-                </div>
-             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* --- PROBLEM/SOLUTION --- */}
-      <section className="py-24 bg-slate-50 dark:bg-slate-900/50">
-        <div className="max-w-6xl mx-auto px-6">
-           <div className="grid md:grid-cols-2 gap-16 items-center">
-              <div className="space-y-6">
-                 <div className="inline-block p-3 rounded-2xl bg-white dark:bg-slate-800 shadow-sm border border-slate-100 dark:border-slate-700">
-                    <Activity size={24} className="text-blue-600" />
-                 </div>
-                 <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white leading-tight">
-                    You started a business to create, <br/>
-                    <span className="text-slate-500">not to be a chat operator.</span>
-                 </h2>
-                 <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Drowning in DMs? Manually copy-pasting tracking numbers? Chasing payments? 
-                    CopIt acts like your smart manager. It works 24/7, replying to customers and managing orders instantly.
-                 </p>
-                 
-                 <div className="space-y-4 pt-4">
-                    <div className="flex gap-4">
-                       <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 flex items-center justify-center flex-shrink-0"><CheckCircle2 size={20} /></div>
-                       <div>
-                          <h4 className="font-bold text-slate-900 dark:text-white">Auto-Reconciliation</h4>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">We verify every payment automatically. No fake screenshots.</p>
-                       </div>
-                    </div>
-                    <div className="flex gap-4">
-                       <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center flex-shrink-0"><Truck size={20} /></div>
-                       <div>
-                          <h4 className="font-bold text-slate-900 dark:text-white">Instant Logistics</h4>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">AWB created and Pickup scheduled the moment payment is done.</p>
-                       </div>
-                    </div>
-                 </div>
-              </div>
-              
-              <div className="relative">
-                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-blue-500/20 blur-[80px] rounded-full"></div>
-                 <div className="relative bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-3xl p-6 shadow-2xl">
-                    <div className="flex items-center justify-between mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
-                       <div className="flex gap-2">
-                          <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                          <div className="w-3 h-3 rounded-full bg-amber-400"></div>
-                          <div className="w-3 h-3 rounded-full bg-green-400"></div>
-                       </div>
-                       <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Live Activity</div>
-                    </div>
-                    
-                    <div className="space-y-3">
-                       <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-100 dark:border-slate-600">
-                          <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-600 shadow-sm flex items-center justify-center text-green-500"><ShoppingBag size={20}/></div>
-                          <div className="flex-1">
-                             <div className="flex justify-between items-center mb-1">
-                                <span className="font-bold text-sm text-slate-800 dark:text-white">New Order #2931</span>
-                                <span className="text-[10px] font-bold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">PAID</span>
-                             </div>
-                             <p className="text-xs text-slate-500">₹1,499 received via UPI</p>
-                          </div>
-                       </div>
-                       
-                       <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-100 dark:border-slate-600">
-                          <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-600 shadow-sm flex items-center justify-center text-blue-500"><Truck size={20}/></div>
-                          <div className="flex-1">
-                             <div className="flex justify-between items-center mb-1">
-                                <span className="font-bold text-sm text-slate-800 dark:text-white">Shipment Booked</span>
-                                <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">AWB: 10293</span>
-                             </div>
-                             <p className="text-xs text-slate-500">Pickup scheduled for tomorrow</p>
-                          </div>
-                       </div>
-
-                       <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-100 dark:border-slate-600">
-                          <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-600 shadow-sm flex items-center justify-center text-purple-500"><Sparkles size={20}/></div>
-                          <div className="flex-1">
-                             <div className="flex justify-between items-center mb-1">
-                                <span className="font-bold text-sm text-slate-800 dark:text-white">Smart Upsell</span>
-                                <span className="text-[10px] font-bold bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">+ ₹499</span>
-                             </div>
-                             <p className="text-xs text-slate-500">Customer added "Matching Belt" via bot</p>
-                          </div>
-                       </div>
-                    </div>
-                 </div>
-              </div>
-           </div>
-        </div>
-      </section>
-
-      {/* --- THE MAGIC LINK --- */}
-      <section className="py-24 px-6 bg-white dark:bg-slate-950 overflow-hidden">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center gap-16">
-            <div className="flex-1 space-y-6">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 font-bold text-xs border border-amber-100 dark:border-amber-800">
-                <MousePointerClick size={14} /> Solves "Wrong Address" Issues
-              </div>
-              <h3 className="text-3xl md:text-5xl font-bold text-slate-900 dark:text-white">No more "Typing Address" errors.</h3>
-              <p className="text-lg text-slate-600 dark:text-slate-400 leading-relaxed">
-                Typing an address line-by-line in a chat is painful. 
-                We send your customer a secure <span className="text-slate-900 dark:text-white font-bold">Magic Link</span>. 
-                They click, fill a clean form (with Pincode check), and confirm. It takes 10 seconds.
-              </p>
-              <div className="grid grid-cols-2 gap-4 pt-4">
-                 <div className="p-5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <p className="text-3xl font-black text-slate-900 dark:text-white mb-1">0%</p>
-                    <p className="text-sm font-medium text-slate-500">Return to Origin (RTO)</p>
-                 </div>
-                 <div className="p-5 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800">
-                    <p className="text-3xl font-black text-slate-900 dark:text-white mb-1">100%</p>
-                    <p className="text-sm font-medium text-slate-500">Correct Pincodes</p>
-                 </div>
-              </div>
+              ))}
             </div>
-
-            <div className="flex-1 relative w-full">
-               <div className="relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-8 rounded-[2rem] shadow-2xl rotate-1 hover:rotate-0 transition-transform duration-500 group max-w-md mx-auto">
-                  <div className="flex items-center gap-2 mb-6 border-b border-slate-100 dark:border-slate-800 pb-4">
-                     <div className="flex-1 text-center text-xs font-semibold text-blue-600 bg-blue-50 dark:bg-blue-900/30 py-2 rounded-lg mx-6">
-                        copit.in/secure-checkout/8f92a...
-                     </div>
-                  </div>
-                  <div className="space-y-4">
-                     <div className="flex gap-4">
-                        <div className="h-12 flex-1 bg-slate-100 dark:bg-slate-800 rounded-xl"></div>
-                        <div className="h-12 w-24 bg-slate-100 dark:bg-slate-800 rounded-xl"></div>
-                     </div>
-                     <div className="h-12 w-full bg-slate-100 dark:bg-slate-800 rounded-xl"></div>
-                     <div className="h-14 w-full bg-blue-600 rounded-xl shadow-lg shadow-blue-600/20 flex items-center justify-center text-white font-bold text-sm mt-4 hover:scale-[1.02] transition-transform cursor-pointer">
-                        Confirm & Return to WhatsApp
-                     </div>
-                  </div>
-                  <div className="absolute -bottom-4 -right-4 bg-slate-900 dark:bg-white text-white dark:text-black px-4 py-2 rounded-lg shadow-xl text-sm font-bold flex items-center gap-2 animate-bounce">
-                     <MousePointerClick size={16}/> Customer Clicks
-                  </div>
-               </div>
-            </div>
-        </div>
-      </section>
-
-      {/* --- BENTO GRID: FEATURES (UPDATED COLORS) --- */}
-      <section id="features" className="py-24 bg-slate-50 dark:bg-slate-900/30 border-y border-slate-200 dark:border-slate-800 relative">
-        <div className="max-w-7xl mx-auto px-6 relative z-10">
-          <div className="text-center mb-16 max-w-3xl mx-auto">
-             <div className="inline-block px-3 py-1 mb-4 text-xs font-bold tracking-widest text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20 rounded-full uppercase">
-                Powerful Features
-             </div>
-             {/* UPDATED HEADLINE */}
-             <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 dark:text-white">Run your business on <span className="text-indigo-600">Autopilot.</span></h2>
-             <p className="text-slate-600 dark:text-slate-400 text-lg">
-               Everything you need to run a professional e-commerce brand, without the complexity.
-             </p>
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-             
-             {/* Feature 1: Payment Fallback (Purple - Trust & Magic) */}
-             <div className="md:col-span-2 bg-white dark:bg-slate-800 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl transition-all relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 blur-[60px] rounded-full pointer-events-none group-hover:bg-purple-500/20 transition-all" />
-                
-                <div className="flex flex-col h-full justify-between relative z-10">
-                   <div>
-                      {/* Purple Icon Container */}
-                      <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 text-purple-600 rounded-2xl flex items-center justify-center mb-6">
-                         <ShieldCheck size={24} />
-                      </div>
-                      <h3 className="text-2xl font-bold mb-3 text-slate-900 dark:text-white">Revenue Guard.</h3>
-                      <p className="text-slate-600 dark:text-slate-400 font-medium leading-relaxed max-w-md">
-                        Payment Gateway down? No problem. CopIt automatically switches to a 
-                        <span className="text-slate-900 dark:text-white font-bold"> "Scan & Upload" </span> 
-                        mode. Your customer can still pay via UPI instantly.
-                      </p>
-                   </div>
-                   <div className="mt-8 flex gap-2">
-                      <div className="px-3 py-1 bg-purple-50 dark:bg-purple-900/20 text-purple-600 text-xs font-bold rounded-lg border border-purple-100 dark:border-purple-800">100% Uptime</div>
-                      <div className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-lg">Zero Revenue Loss</div>
-                   </div>
+        <div className="hero-card-wrapper">
+          <div className="live-card">
+            <div className="live-card-header">
+              <div className="mac-dots" aria-hidden>
+                <div className="mac-dot" style={{ background: '#FF5F57' }} />
+                <div className="mac-dot" style={{ background: '#FEBC2E' }} />
+                <div className="mac-dot" style={{ background: '#28C840' }} />
+              </div>
+              <span className="live-tag">Live Activity</span>
+            </div>
+            {ACTIVITY_ROWS.map((row, i) => (
+              <div key={i} className="activity-row">
+                <div className="activity-icon" aria-hidden>{row.icon}</div>
+                <div className="activity-info">
+                  <div className="activity-title">
+                    <span>{row.title}</span>
+                    <span className={`pill ${row.pillClass}`}>{row.pill}</span>
+                  </div>
+                  <div className="activity-sub">{row.sub}</div>
                 </div>
-             </div>
-
-             {/* Feature 2: Upsell (Teal - Growth) */}
-             <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all relative overflow-hidden group">
-                <div className="w-12 h-12 bg-teal-100 dark:bg-teal-900/30 text-teal-600 rounded-2xl flex items-center justify-center mb-6">
-                   <TrendingUp size={24} />
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-slate-900 dark:text-white">Smart Upsells</h3>
-                <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed mb-6">
-                  The bot waits exactly 5 seconds after an order to pitch a discount:
-                </p>
-                <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-                   <p className="text-xs font-bold text-slate-800 dark:text-white">Bot:</p>
-                   <p className="text-xs text-slate-600 dark:text-slate-400 italic">"Wait! Want to add matching socks for just ₹199?"</p>
-                </div>
-             </div>
-
-             {/* Feature 3: Cart Recovery (Blue - Communication) */}
-             <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all relative overflow-hidden group">
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
-                   <MessageCircle size={24} />
-                </div>
-                <h3 className="text-xl font-bold mb-3 text-slate-900 dark:text-white">Cart Recovery</h3>
-                <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">
-                  If a customer stops replying, we nudge them after 30 mins with a small discount code.
-                  <span className="block mt-2 font-bold text-blue-600">Recovers ~15% of lost sales.</span>
-                </p>
-             </div>
-
-             {/* Feature 4: Review Management (Amber - Standards) */}
-             <div className="md:col-span-2 bg-white dark:bg-slate-800 p-10 rounded-[2.5rem] border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl transition-all relative overflow-hidden flex flex-col justify-center">
-                <div className="flex flex-col md:flex-row md:items-center gap-8">
-                   <div className="flex-1">
-                      <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-2xl flex items-center justify-center mb-6">
-                         <Star size={24} />
-                      </div>
-                      <h3 className="text-2xl font-bold mb-3 text-slate-900 dark:text-white">Reputation Firewall</h3>
-                      <p className="text-slate-600 dark:text-slate-400 font-medium max-w-md">
-                        We ask for reviews automatically. Good ones go public. Bad ones come to you first, so you can fix the issue privately.
-                      </p>
-                   </div>
-                   <div className="space-y-3 min-w-[240px]">
-                      <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/10 rounded-xl border border-green-100 dark:border-green-900/20">
-                        <span className="text-green-500 font-bold text-sm">★★★★★</span>
-                        <ArrowRight size={14} className="text-slate-300"/>
-                        <span className="text-[10px] font-bold text-green-700 uppercase">Published</span>
-                      </div>
-                      <div className="flex items-center gap-3 p-3 bg-amber-50 dark:bg-amber-900/10 rounded-xl border border-amber-100 dark:border-amber-900/20 opacity-70">
-                        <span className="text-amber-500 font-bold text-sm">★☆☆☆☆</span>
-                        <ArrowRight size={14} className="text-slate-300"/>
-                        <span className="text-[10px] font-bold text-amber-600 uppercase">Alert Admin</span>
-                      </div>
-                   </div>
-                </div>
-             </div>
-
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* --- HOW IT WORKS --- */}
-      <section className="py-24 bg-white dark:bg-slate-950">
-         <div className="max-w-7xl mx-auto px-6">
-            <h2 className="text-3xl font-bold text-center mb-16 text-slate-900 dark:text-white">How it Works</h2>
-            
-            <div className="grid md:grid-cols-4 gap-8 relative">
-               <div className="hidden md:block absolute top-8 left-0 w-full h-[2px] bg-slate-100 dark:bg-slate-800 z-0" />
-
-               {[
-                  { title: "Trigger", desc: "User DMs you 'Buy' or clicks link", icon: Zap },
-                  { title: "Capture", desc: "They fill address in secure form", icon: Lock },
-                  { title: "Verify", desc: "We confirm payment automatically", icon: CreditCard },
-                  { title: "Ship", desc: "AWB Generated instantly", icon: Truck },
-               ].map((step, i) => (
-                  <div key={i} className="flex flex-col items-center text-center relative z-10">
-                     <div className="w-16 h-16 bg-white dark:bg-slate-900 border-4 border-slate-50 dark:border-slate-800 rounded-full flex items-center justify-center mb-6 shadow-sm">
-                        <step.icon size={24} className="text-blue-600" />
-                     </div>
-                     <h3 className="text-lg font-bold mb-2 text-slate-900 dark:text-white">{step.title}</h3>
-                     <p className="text-sm text-slate-500">{step.desc}</p>
-                  </div>
-               ))}
-            </div>
-         </div>
-      </section>
-
-      {/* --- FINAL CTA --- */}
-      <section className="py-20 px-6">
-        <div className="max-w-5xl mx-auto bg-blue-600 dark:bg-blue-700 rounded-[2.5rem] p-12 md:p-20 text-center relative overflow-hidden shadow-2xl shadow-blue-200 dark:shadow-blue-900/50">
-           <div className="relative z-10">
-              <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-6">
-                 Ready to automate your business?
+      <section className="section bg-soft">
+        <div className="section-inner">
+          <div className="two-col">
+            <div className="reveal">
+              <span className="section-label">The Problem</span>
+              <h2>
+                You started a brand to create,<br />
+                <span className="muted">not to be a chat operator.</span>
               </h2>
-              <p className="text-blue-100 text-lg mb-10 max-w-xl mx-auto">
-                 Join hundreds of Indian brands running on autopilot. Save time, reduce errors, and sleep better.
+              <p style={{ marginTop: '1.25rem', color: 'var(--text-secondary)', lineHeight: 1.75, fontSize: '1rem' }}>
+                Drowning in DMs? Manually copy-pasting tracking numbers? Chasing payments?
+                CopIt acts like your smart business manager—working 24/7, so you never miss an order.
               </p>
-              
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                 <Link href="/login" className="px-10 py-5 bg-white text-blue-700 rounded-xl font-bold text-lg hover:shadow-lg hover:scale-[1.02] transition-all">
-                    Start Free Trial
-                 </Link>
-                 <Link href="/demo" className="px-10 py-5 bg-transparent border border-blue-400 text-white rounded-xl font-bold text-lg hover:bg-blue-500 transition-colors">
-                    Watch Demo
-                 </Link>
+              <ul className="check-list">
+                <li className="check-item">
+                  <div className="check-icon green" aria-hidden>✅</div>
+                  <div className="check-body">
+                    <h4>Auto-Reconciliation</h4>
+                    <p>Every payment verified automatically. No fake screenshots, ever.</p>
+                  </div>
+                </li>
+                <li className="check-item">
+                  <div className="check-icon blue" aria-hidden>🚚</div>
+                  <div className="check-body">
+                    <h4>Instant Logistics</h4>
+                    <p>AWB created and pickup scheduled the moment payment clears.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div className="reveal reveal-d2">
+              <div className="dm-card">
+                <div className="dm-bubble customer">
+                  <div className="dm-avatar customer" aria-hidden>👤</div>
+                  <div>
+                    <div className="dm-sender">Customer DM</div>
+                    <div className="dm-text">&quot;Price? Is this available?&quot;</div>
+                  </div>
+                </div>
+                <div className="dm-bubble bot">
+                  <div className="dm-avatar bot" aria-hidden>🤖</div>
+                  <div>
+                    <div className="dm-sender" style={{ color: 'var(--brand-blue)' }}>CopIt Bot (instant)</div>
+                    <div className="dm-text" style={{ color: 'var(--brand-blue)' }}>
+                      &quot;Hi! It&apos;s ₹1,499 ✅ Click to order → copit.in/buy/abc&quot;
+                    </div>
+                  </div>
+                </div>
+                <div className="dm-stats">
+                  {[
+                    { val: '2.3s', label: 'Response time' },
+                    { val: '24/7', label: 'Always online' },
+                  ].map((s) => (
+                    <div key={s.label} className="dm-stat">
+                      <div className="dm-stat-val">{s.val}</div>
+                      <div className="dm-stat-label">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className="mt-8 text-xs font-bold text-blue-200 uppercase tracking-widest opacity-80">
-                 Easy Setup • No Credit Card Required
-              </p>
-           </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      <Footer/>
-    </div>
+      <section className="section">
+        <div className="section-inner">
+          <div className="two-col">
+            <div className="reveal">
+              <span className="section-label" style={{ background: '#FFF7ED', color: '#C2410C', borderColor: '#FED7AA' }}>
+                Solves &quot;Wrong Address&quot; Issues
+              </span>
+              <h2>No more<br />&quot;Typing Address&quot; errors.</h2>
+              <p style={{ marginTop: '1.25rem', color: 'var(--text-secondary)', lineHeight: 1.75, fontSize: '1rem' }}>
+                Typing an address line-by-line in chat is painful. We send your customer a secure{' '}
+                <strong style={{ color: 'var(--text-primary)' }}>Magic Link</strong>. They click,
+                fill a clean form with pincode validation, and confirm in 10 seconds flat.
+              </p>
+              <div className="stat-grid">
+                <div className="stat-card">
+                  <div className="stat-num">0%</div>
+                  <div className="stat-label">Return to Origin (RTO)</div>
+                </div>
+                <div className="stat-card">
+                  <div className="stat-num">100%</div>
+                  <div className="stat-label">Correct Pincodes</div>
+                </div>
+              </div>
+            </div>
+            <div className="reveal reveal-d2" style={{ position: 'relative' }}>
+              <div className="magic-mockup">
+                <div className="url-bar">copit.in/secure-checkout/8f92a...</div>
+                <div className="mock-form-row">
+                  <div className="mock-field" />
+                  <div className="mock-field" style={{ width: '80px' }} />
+                </div>
+                <div className="mock-field-full" />
+                <div className="mock-field-full" style={{ height: '36px', width: '120px' }} />
+                <div className="mock-submit">
+                  Confirm &amp; Return to WhatsApp ↗
+                </div>
+                <div className="bounce-badge" aria-hidden>
+                  👆 Customer Clicks
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="features" className="section bg-soft" style={{ borderTop: '1px solid var(--border-card)', borderBottom: '1px solid var(--border-card)' }}>
+        <div className="section-inner">
+          <div className="reveal" style={{ textAlign: 'center', marginBottom: '4rem' }}>
+            <span className="section-label" style={{ background: '#EEF2FF', color: 'var(--brand-indigo)', borderColor: '#C7D2FE' }}>
+              Powerful Features
+            </span>
+            <h2 style={{ marginTop: '0.75rem' }}>
+              Run your business <span style={{ color: 'var(--brand-indigo)' }}>on Autopilot.</span>
+            </h2>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '1rem', fontSize: '1.0625rem', maxWidth: '520px', marginInline: 'auto', lineHeight: 1.7 }}>
+              Everything you need to run a professional D2C brand, without the complexity.
+            </p>
+          </div>
+          <div className="bento-grid reveal">
+            <div className="bento-card bento-wide">
+              <div className="bento-icon purple" aria-hidden>🛡️</div>
+              <h3>Revenue Guard.</h3>
+              <p>
+                Payment gateway down? No problem. CopIt automatically switches to a{' '}
+                <strong>&quot;Scan &amp; Upload&quot;</strong> fallback mode. Your customer can
+                still pay via UPI instantly—you never lose a sale.
+              </p>
+              <div className="tag-row">
+                <span className="tag purple">100% Uptime</span>
+                <span className="tag slate">Zero Revenue Loss</span>
+              </div>
+            </div>
+            <div className="bento-card">
+              <div className="bento-icon teal" aria-hidden>📈</div>
+              <h3>Smart Upsells</h3>
+              <p>The bot waits 5 seconds after an order to pitch a personalized add-on.</p>
+              <div className="chat-bubble">
+                <div className="chat-label">Bot says</div>
+                <div className="chat-text">&quot;Wait! Add matching socks for just ₹199?&quot;</div>
+              </div>
+            </div>
+            <div className="bento-card">
+              <div className="bento-icon blue" aria-hidden>💬</div>
+              <h3>Cart Recovery</h3>
+              <p>
+                Customer stopped replying? We nudge them after 30 mins with a small discount code.
+              </p>
+              <div className="tag-row">
+                <span className="tag blue">~15% more revenue</span>
+              </div>
+            </div>
+            <div className="bento-card bento-wide">
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '2.5rem', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '240px' }}>
+                  <div className="bento-icon amber" style={{ marginBottom: '1.25rem' }} aria-hidden>⭐</div>
+                  <h3>Reputation Firewall</h3>
+                  <p>
+                    We request reviews automatically. Good ones go public. Bad ones come to{' '}
+                    <strong>you first</strong>, so you can fix the issue privately.
+                  </p>
+                </div>
+                <div className="review-rows">
+                  <div className="review-row good">
+                    <span className="review-stars" aria-label="5 stars">★★★★★</span>
+                    <span className="review-arrow" aria-hidden>→</span>
+                    <span>Published ✓</span>
+                  </div>
+                  <div className="review-row bad">
+                    <span className="review-stars" aria-label="1 star">★☆☆☆☆</span>
+                    <span className="review-arrow" aria-hidden>→</span>
+                    <span>Alert Admin ⚠</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="how" className="section">
+        <div className="section-inner">
+          <div className="reveal" style={{ textAlign: 'center', marginBottom: '1rem' }}>
+            <h2>How it Works</h2>
+          </div>
+          <div className="steps-row reveal">
+            <div className="steps-line" aria-hidden />
+            {STEPS.map((s) => (
+              <div key={s.title} className="step">
+                <div className="step-num" aria-hidden>{s.icon}</div>
+                <h4>{s.title}</h4>
+                <p>{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="cta-section">
+        <div className="cta-box reveal">
+          <h2>Ready to automate<br />your business?</h2>
+          <p>
+            Join hundreds of Indian brands running on autopilot. Save time, reduce errors, and sleep better.
+          </p>
+          <div className="cta-btns">
+            <Link href="/login" className="btn-white">Start Free Trial</Link>
+            <Link href="/demo" className="btn-outline-white">Watch Demo</Link>
+          </div>
+          <p className="cta-fine">Easy Setup · No Credit Card Required</p>
+        </div>
+      </div>
+ <Footer/>
+      <footer className="cop-footer">
+        <p>© 2025 CopIt · Made for Indian D2C brands · Built with ❤️ in India</p>
+       
+      </footer>
+    </main>
   )
 }

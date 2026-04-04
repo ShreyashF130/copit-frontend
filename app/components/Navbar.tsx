@@ -1,14 +1,38 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { LayoutDashboard } from 'lucide-react'
 import Logo from './logo'
 import { ThemeToggle } from './themetoggle' 
-
+// import { useEffect, useState, useCallback } from 'react'
 export default function Navbar({ user }: { user: any }) {
+
+
+  type Theme = 'light' | 'dark'
+  
+
+    const applyTheme = (t: Theme) => {
+    document.documentElement.setAttribute('data-theme', t)
+  }
+
+   useEffect(() => {
+      const stored = localStorage.getItem('copit-theme') as Theme | null
+      const preferred = stored ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      applyTheme(preferred)
+      setTheme(preferred)
+    }, [])
+  
   const [isVisible, setIsVisible] = useState(true)
   const [lastScrollY, setLastScrollY] = useState(0)
+  const [theme, setTheme] = useState<Theme>('light')
+ const toggleTheme = useCallback(() => {
+    const next: Theme = theme === 'light' ? 'dark' : 'light'
+    setTheme(next)
+    applyTheme(next)
+    localStorage.setItem('copit-theme', next)
+  }, [theme])
+
 
   // 🧠 SMART SCROLL LOGIC
   useEffect(() => {
@@ -54,7 +78,7 @@ export default function Navbar({ user }: { user: any }) {
             <a href="/demo" className="hover:text-primary transition-colors">Demo</a>
           </div>
           
-          <ThemeToggle />
+         <div onClick={toggleTheme}><ThemeToggle/></div> 
 
           {/* CONDITIONAL RENDERING LOGIC */}
           {user ? (
