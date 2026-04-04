@@ -1,12 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState, useCallback } from 'react'
-import './landing.css' // <-- Changed to the isolated file
+import { useEffect } from 'react'
+import './landing.css'
 import Footer from './Footer.tsx/page'
 import Navbar from './components/Navbar'
-
-type Theme = 'light' | 'dark'
 
 const TICKER_ITEMS = [
   'WhatsApp Orders Automated',
@@ -70,50 +68,10 @@ function PlayIcon() {
   )
 }
 
-function SunIcon() {
-  return (
-    <svg className="icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="5" />
-      <line x1="12" y1="1" x2="12" y2="3" />
-      <line x1="12" y1="21" x2="12" y2="23" />
-      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-      <line x1="1" y1="12" x2="3" y2="12" />
-      <line x1="21" y1="12" x2="23" y2="12" />
-      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-    </svg>
-  )
-}
-
-function MoonIcon() {
-  return (
-    <svg className="icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  )
-}
-
 export default function LandingPage() {
-  const [theme, setTheme] = useState<Theme>('light')
-
-  useEffect(() => {
-    const stored = localStorage.getItem('copit-theme') as Theme | null
-    const preferred = stored ?? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    applyTheme(preferred)
-    setTheme(preferred)
-  }, [])
-
-  const applyTheme = (t: Theme) => {
-    document.documentElement.setAttribute('data-theme', t)
-  }
-
-  const toggleTheme = useCallback(() => {
-    const next: Theme = theme === 'light' ? 'dark' : 'light'
-    setTheme(next)
-    applyTheme(next)
-    localStorage.setItem('copit-theme', next)
-  }, [theme])
+  // Define a placeholder user for the Navbar so it doesn't crash. 
+  // (Update this later when you add real authentication)
+  const user = null; 
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -127,8 +85,11 @@ export default function LandingPage() {
   const tickerItems = [...TICKER_ITEMS, ...TICKER_ITEMS] 
 
   return (
-    <main className="copit-wrapper"> 
-      <Navbar/>
+    // Fixed the double <main> tag issue here
+    <main className="copit-wrapper bg-[var(--bg-page)] text-[var(--text-primary)] min-h-screen">
+      
+      <Navbar user={user} />
+
       <div className="ticker-wrap" aria-hidden>
         <div className="ticker">
           {tickerItems.map((item, i) => (
@@ -417,10 +378,11 @@ export default function LandingPage() {
           <p className="cta-fine">Easy Setup · No Credit Card Required</p>
         </div>
       </div>
- <Footer/>
+
+      <Footer/>
+      
       <footer className="cop-footer">
         <p>© 2025 CopIt · Made for Indian D2C brands · Built with ❤️ in India</p>
-       
       </footer>
     </main>
   )
